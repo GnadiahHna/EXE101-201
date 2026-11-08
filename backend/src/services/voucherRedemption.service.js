@@ -88,7 +88,8 @@ async function getMyVouchers(actor, query = {}) {
   const formattedItems = userVouchers.map((uv) => {
     const parent = parentVoucherMap.get(uv.voucherId);
     let derivedStatus = 'AVAILABLE';
-    const isExpired = uv.expiryDate && new Date(uv.expiryDate) < now;
+    const effectiveExpiry = uv.expiryDate || parent?.expiryDate || null;
+    const isExpired = effectiveExpiry && new Date(effectiveExpiry) < now;
 
     if (uv.used) {
       derivedStatus = 'USED';
@@ -107,7 +108,7 @@ async function getMyVouchers(actor, query = {}) {
       discountValue: uv.discountValue ?? parent?.discountValue ?? null,
       discountType: parent?.discountType || 'AMOUNT',
       type: uv.type || parent?.type || 'SERVICE_TICKET',
-      expiryDate: uv.expiryDate ? uv.expiryDate.toISOString() : null,
+      expiryDate: effectiveExpiry ? new Date(effectiveExpiry).toISOString() : null,
       issuedAt: uv.issuedAt ? uv.issuedAt.toISOString() : null,
       used: Boolean(uv.used),
       usedAt: uv.usedAt ? uv.usedAt.toISOString() : null,

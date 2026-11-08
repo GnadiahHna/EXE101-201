@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Badge, Card, Col, Row, Spinner } from "react-bootstrap";
+import { Alert, Badge, Button, Card, Col, Row, Spinner } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
 import { fetchMyVouchers, type UserVoucher, type VoucherType } from "../../api/voucher";
 import "../../styles/appointmentlist.css";
 
@@ -30,6 +31,7 @@ function formatDiscount(voucher: UserVoucher): string {
 }
 
 export default function PatientVouchers() {
+  const navigate = useNavigate();
   const [vouchers, setVouchers] = useState<UserVoucher[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -100,8 +102,24 @@ export default function PatientVouchers() {
                     <div className="small text-muted mb-1">
                       Hạn sử dụng: {formatDateTime(voucher.expiryDate)}
                     </div>
-                    <div className="small text-muted">
+                    <div className="small text-muted mb-3">
                       Nhận lúc: {formatDateTime(voucher.issuedAt)}
+                    </div>
+                    <div className="mt-auto">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        className="w-100 rounded-pill"
+                        onClick={() =>
+                          navigate(
+                            `/appointment?voucherId=${voucher.voucherId}&voucherCode=${encodeURIComponent(
+                              voucher.voucherCode
+                            )}`
+                          )
+                        }
+                      >
+                        Dùng ngay khi đặt lịch
+                      </Button>
                     </div>
                   </Card.Body>
                 </Card>

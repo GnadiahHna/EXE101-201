@@ -13,12 +13,23 @@ const voucherRateLimiter = createRateLimiter({
   message: 'Bạn đã thực hiện quá nhiều yêu cầu xem voucher. Vui lòng thử lại sau 1 phút.',
 });
 
+// 0. Public routes for Home page (Guest & Patient)
+router.get('/public', voucherController.getPublicActiveVouchers);
+router.get('/active', voucherController.getPublicActiveVouchers);
+
 // 1. Patient personal vouchers
 router.get(
   '/my',
   authenticate,
   authorize(ROLES.PATIENT),
   voucherController.getMyVouchers,
+);
+
+router.post(
+  '/:voucherId/claim',
+  authenticate,
+  authorize(ROLES.PATIENT),
+  voucherController.claimVoucher,
 );
 
 // 2. Admin & Receptionist: View all & owner lookups

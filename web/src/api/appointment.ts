@@ -22,6 +22,11 @@ export type Appointment = {
   reason?: string;
   patients?: PatientInfo[];
   type?: "ONLINE" | "OFFLINE";
+  voucherId?: number;
+  voucherCode?: string;
+  discountAmount?: number;
+  originalAmount?: number;
+  finalAmount?: number;
 };
 
 export type AppointmentQuery = {
@@ -141,6 +146,11 @@ export const normalizeAppointment = (raw: unknown): Appointment => {
     reason: pickString(record.reason),
     patients,
     type,
+    voucherId: pickNumber(record.voucherId),
+    voucherCode: pickString(record.voucherCode),
+    discountAmount: pickNumber(record.discountAmount),
+    originalAmount: pickNumber(record.originalAmount),
+    finalAmount: pickNumber(record.finalAmount),
   };
 };
 
@@ -266,6 +276,8 @@ export type BookAppointmentPayload = {
   };
   patients?: BookAppointmentPatientPayload[];
   shiftId?: number | null;
+  voucherId?: number | null;
+  voucherCode?: string | null;
 };
 
 export async function bookAppointment(

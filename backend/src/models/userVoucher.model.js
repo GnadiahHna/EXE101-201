@@ -13,6 +13,26 @@ const userVoucherSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    voucherCode: {
+      type: String,
+      default: null,
+    },
+    voucherName: {
+      type: String,
+      default: null,
+    },
+    discountValue: {
+      type: Number,
+      default: null,
+    },
+    type: {
+      type: String,
+      default: null,
+    },
+    expiryDate: {
+      type: Date,
+      default: null,
+    },
     issuedAt: {
       type: Date,
       default: Date.now,

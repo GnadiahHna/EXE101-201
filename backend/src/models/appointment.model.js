@@ -148,6 +148,31 @@ const appointmentSchema = new mongoose.Schema(
       type: [appointmentPatientSnapshotSchema],
       default: [],
     },
+    voucherId: {
+      type: Number,
+      default: null,
+      index: true,
+    },
+    voucherCode: {
+      type: String,
+      default: null,
+    },
+    userVoucherId: {
+      type: Number,
+      default: null,
+    },
+    discountAmount: {
+      type: Number,
+      default: 0,
+    },
+    originalAmount: {
+      type: Number,
+      default: null,
+    },
+    finalAmount: {
+      type: Number,
+      default: null,
+    },
   },
   {
     timestamps: true,

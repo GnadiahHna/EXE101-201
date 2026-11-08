@@ -1,7 +1,14 @@
-import { useMemo, useState } from "react";
-import { Alert, Card, Col, Row, Spinner } from "react-bootstrap";
-import { useAppt } from "../../../contexts/AppointmentContext";
+import { useEffect, useMemo, useState } from "react";
+import { Alert, Badge, Button, Card, Col, Form, Row, Spinner } from "react-bootstrap";
+import { useAppt, type SelectedVoucherInfo } from "../../../contexts/AppointmentContext";
 import { bookAppointment, type Appointment } from "../../../api/appointment";
+import {
+  claimVoucher,
+  fetchMyVouchers,
+  fetchPublicVouchers,
+  type UserVoucher,
+  type VoucherItem,
+} from "../../../api/voucher";
 import { http } from "../../../api/http";
 import { getDoctorImagePathWithFallback } from "../../../utils/doctorImage";
 
@@ -55,13 +62,85 @@ export default function Step4Review() {
   const [transactionCode, setTransactionCode] = useState<string | null>(null);
   const [confirmedAppointment, setConfirmedAppointment] = useState<Appointment | null>(null);
 
+  const [myVouchers, setMyVouchers] = useState<UserVoucher[]>([]);
+  const [publicVouchers, setPublicVouchers] = useState<VoucherItem[]>([]);
+  const [loadingVouchers, setLoadingVouchers] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    setLoadingVouchers(true);
+    Promise.all([
+      fetchMyVouchers().catch(() => [] as UserVoucher[]),
+      fetchPublicVouchers().catch(() => [] as VoucherItem[]),
+    ])
+      .then(([mine, pub]) => {
+        if (!mounted) return;
+        setMyVouchers(mine);
+        setPublicVouchers(pub);
+      })
+      .finally(() => {
+        if (mounted) setLoadingVouchers(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const availableVoucherChoices = useMemo<SelectedVoucherInfo[]>(() => {
+    const usedIds = new Set(
+      myVouchers.filter((uv) => uv.used).map((uv) => uv.voucherId)
+    );
+    const map = new Map<number, SelectedVoucherInfo>();
+
+    for (const uv of myVouchers) {
+      if (!uv.used) {
+        map.set(uv.voucherId, {
+          voucherId: uv.voucherId,
+          code: uv.voucherCode,
+          name: uv.voucherName,
+          type: uv.type,
+          discountValue: uv.discountValue,
+          expiryDate: uv.expiryDate,
+        });
+      }
+    }
+
+    for (const pv of publicVouchers) {
+      if (pv.enable && !usedIds.has(pv.id) && !map.has(pv.id)) {
+        map.set(pv.id, {
+          voucherId: pv.id,
+          code: pv.code,
+          name: pv.name,
+          type: pv.type,
+          discountValue: pv.discountValue,
+          expiryDate: pv.expiryDate,
+        });
+      }
+    }
+
+    return Array.from(map.values());
+  }, [myVouchers, publicVouchers]);
+
   const patientCount = state.patientSelections.length;
   const billedPatients = Math.max(1, patientCount);
   const baseFeePerPatient = 200_000;
   const onlineSurchargePerPatient = state.appointmentType === "ONLINE" ? 50_000 : 0;
   const subtotal = baseFeePerPatient * billedPatients;
   const surcharge = onlineSurchargePerPatient * billedPatients;
-  const totalAmount = subtotal + surcharge;
+  const originalTotalAmount = subtotal + surcharge;
+
+  const discountAmount = useMemo(() => {
+    const v = state.selectedVoucher;
+    if (!v || !v.discountValue || v.discountValue <= 0) return 0;
+    if (v.type === "DISCOUNT") {
+      const pct = Math.min(100, Math.max(0, v.discountValue));
+      return Math.round((originalTotalAmount * pct) / 100);
+    }
+    const monetary = v.discountValue < 1000 ? v.discountValue * 1000 : v.discountValue;
+    return Math.min(originalTotalAmount, Math.round(monetary));
+  }, [state.selectedVoucher, originalTotalAmount]);
+
+  const totalAmount = Math.max(0, originalTotalAmount - discountAmount);
 
   const shiftSummaryText =
     state.shiftLabel || state.shiftName || "Chưa chọn ca khám";
@@ -125,7 +204,15 @@ export default function Step4Review() {
     );
 
     try {
-      // 1. Tạo appointment
+      // 1. Tạo appointment (kèm voucher nếu bệnh nhân đã chọn)
+      if (state.selectedVoucher) {
+        try {
+          await claimVoucher(state.selectedVoucher.voucherId);
+        } catch {
+          // Backend bookAppointment also handles auto-claim/consumption
+        }
+      }
+
       const res = await bookAppointment(
         {
           appointment: {
@@ -134,6 +221,8 @@ export default function Step4Review() {
           },
           shiftId: state.shiftId ?? undefined,
           patients: patientsPayload,
+          voucherId: state.selectedVoucher?.voucherId ?? null,
+          voucherCode: state.selectedVoucher?.code ?? null,
         },
         {
           specialtyId: state.specialtyId,
@@ -154,6 +243,7 @@ export default function Step4Review() {
       if (appointmentType === "OFFLINE" || state.appointmentType === "ONSITE") {
         setTransactionCode(appointmentNo);
         setConfirmedAppointment({ ...res.data, status: "CONFIRMED" });
+        dispatch({ type: "SET_VOUCHER", value: null });
         setMessage("Đặt lịch thành công! Lịch hẹn đã được xác nhận.");
         setPaymentStatus("SUCCESS");
         setSubmitting(false);
@@ -318,6 +408,71 @@ export default function Step4Review() {
           )}
         </Card>
 
+        {/* Chọn mã ưu đãi / Voucher */}
+        <Card className="p-3 mb-3">
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <h5 className="mb-0">Mã ưu đãi / Voucher</h5>
+            {loadingVouchers && <Spinner animation="border" size="sm" />}
+          </div>
+          {availableVoucherChoices.length === 0 ? (
+            <div className="text-muted small">
+              Hiện chưa có mã voucher khả dụng để áp dụng.
+            </div>
+          ) : (
+            <Row className="g-2 align-items-center">
+              <Col md={8}>
+                <Form.Select
+                  value={state.selectedVoucher?.voucherId ?? ""}
+                  disabled={paymentStatus === "SUCCESS" || submitting}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    if (!val) {
+                      dispatch({ type: "SET_VOUCHER", value: null });
+                      return;
+                    }
+                    const found = availableVoucherChoices.find((v) => v.voucherId === val);
+                    dispatch({ type: "SET_VOUCHER", value: found || null });
+                  }}
+                >
+                  <option value="">-- Chọn voucher ưu đãi --</option>
+                  {availableVoucherChoices.map((v) => {
+                    const benefitText =
+                      v.type === "DISCOUNT"
+                        ? `Giảm ${v.discountValue ?? 0}%`
+                        : v.discountValue && v.discountValue >= 1000
+                        ? `Giảm ${v.discountValue.toLocaleString("vi-VN")}đ`
+                        : `Tặng ${v.discountValue ?? 0} điểm`;
+                    return (
+                      <option key={v.voucherId} value={v.voucherId}>
+                        [{v.code}] {v.name || "Voucher ưu đãi"} ({benefitText})
+                      </option>
+                    );
+                  })}
+                </Form.Select>
+              </Col>
+              <Col md={4} className="text-md-end">
+                {state.selectedVoucher ? (
+                  <div className="d-inline-flex align-items-center gap-2">
+                    <Badge bg="success">
+                      -{formatCurrency(discountAmount)}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline-secondary"
+                      disabled={paymentStatus === "SUCCESS" || submitting}
+                      onClick={() => dispatch({ type: "SET_VOUCHER", value: null })}
+                    >
+                      Bỏ chọn
+                    </Button>
+                  </div>
+                ) : (
+                  <span className="text-muted small">Chưa chọn mã ưu đãi</span>
+                )}
+              </Col>
+            </Row>
+          )}
+        </Card>
+
         {/* Chỉ hiển thị phần thanh toán nếu là khám trực tuyến (ONLINE) */}
         {state.appointmentType === "ONLINE" ? (
           <Card className="p-3 mb-3">
@@ -379,6 +534,12 @@ export default function Step4Review() {
                 <span>Số bệnh nhân</span>
                 <span>{patientCount}</span>
               </div>
+              {discountAmount > 0 && state.selectedVoucher && (
+                <div className="payment-summary__row text-success">
+                  <span>Voucher ưu đãi ({state.selectedVoucher.code})</span>
+                  <span>-{formatCurrency(discountAmount)}</span>
+                </div>
+              )}
               <div className="payment-summary__total">
                 <span>Tổng thanh toán</span>
                 <span>{totalLabel}</span>
@@ -396,6 +557,22 @@ export default function Step4Review() {
           /* Hiển thị thông báo cho khám trực tiếp (ONSITE/OFFLINE) */
           <Card className="p-3 mb-3">
             <h5 className="mb-3">Thông tin thanh toán</h5>
+            <div className="payment-summary mb-3">
+              <div className="payment-summary__row">
+                <span>Phí khám cơ bản dự kiến</span>
+                <span>{formatCurrency(baseFeePerPatient)} x {billedPatients}</span>
+              </div>
+              {discountAmount > 0 && state.selectedVoucher && (
+                <div className="payment-summary__row text-success">
+                  <span>Voucher ưu đãi ({state.selectedVoucher.code})</span>
+                  <span>-{formatCurrency(discountAmount)}</span>
+                </div>
+              )}
+              <div className="payment-summary__total">
+                <span>Tổng chi phí dự kiến tại quầy</span>
+                <span>{totalLabel}</span>
+              </div>
+            </div>
             <Alert variant="info" className="mb-0">
               <strong>Khám trực tiếp:</strong> Bạn sẽ thanh toán trực tiếp tại phòng khám khi đến khám.
               Không cần thanh toán trước.

@@ -13,6 +13,15 @@ export type PatientSelection = {
   reason?: string;
 };
 
+export type SelectedVoucherInfo = {
+  voucherId: number;
+  code: string;
+  name?: string | null;
+  type: "SERVICE_TICKET" | "DISCOUNT";
+  discountValue?: number | null;
+  expiryDate?: string | null;
+};
+
 type State = {
   step: 1 | 2 | 3 | 4;
   specialtyId: number | null;
@@ -31,6 +40,7 @@ type State = {
   shiftAvailableSlots?: number;
   shiftTotalSlots?: number;
   patientSelections: PatientSelection[];
+  selectedVoucher: SelectedVoucherInfo | null;
 };
 
 type Action =
@@ -70,6 +80,7 @@ type Action =
       totalSlots?: number;
     }
   | { type: "SET_PATIENT_SELECTIONS"; value: PatientSelection[] }
+  | { type: "SET_VOUCHER"; value: SelectedVoucherInfo | null }
   | { type: "RESET" };
 
 const initial: State = {
@@ -80,6 +91,7 @@ const initial: State = {
   dateISO: "",
   shiftId: null,
   patientSelections: [],
+  selectedVoucher: null,
 };
 
 function reducer(state: State, a: Action): State {
@@ -188,6 +200,8 @@ function reducer(state: State, a: Action): State {
       };
     case "SET_PATIENT_SELECTIONS":
       return { ...state, patientSelections: a.value };
+    case "SET_VOUCHER":
+      return { ...state, selectedVoucher: a.value };
     case "RESET":
       return initial;
     default:

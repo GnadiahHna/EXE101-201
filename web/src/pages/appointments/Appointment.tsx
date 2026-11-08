@@ -3,6 +3,7 @@ import { Alert, Container, Spinner } from "react-bootstrap";
 import { useSearchParams } from "react-router-dom";
 import { useAppt } from "../../contexts/AppointmentContext";
 import { fetchDoctorById } from "../../api/doctor";
+import { fetchVoucherById } from "../../api/voucher";
 import Step1 from "./steps/Step1";
 import Step2 from "./steps/Step2";
 import Step3 from "./steps/Step3";
@@ -26,6 +27,7 @@ export default function Appointment() {
   const [sp, setSp] = useSearchParams();
   const doctorIdParam = sp.get("doctorId");
   const specialtyIdParam = sp.get("specialtyId");
+  const voucherIdParam = sp.get("voucherId");
   const stepParam = sp.get("step");
   const [loadingDoctor, setLoadingDoctor] = useState(Boolean(positiveId(doctorIdParam)));
   const [doctorError, setDoctorError] = useState<string | null>(null);
@@ -120,6 +122,36 @@ export default function Appointment() {
     };
   }, [doctorIdParam, specialtyIdParam, dispatch]);
 
+  // Prefill voucher when navigated with ?voucherId=... from Home or PatientVouchers
+  useEffect(() => {
+    let active = true;
+    const vId = positiveId(voucherIdParam);
+    if (!vId) return;
+
+    fetchVoucherById(vId)
+      .then((voucher) => {
+        if (!active || !voucher.enable) return;
+        dispatch({
+          type: "SET_VOUCHER",
+          value: {
+            voucherId: voucher.id,
+            code: voucher.code,
+            name: voucher.name,
+            type: voucher.type,
+            discountValue: voucher.discountValue,
+            expiryDate: voucher.expiryDate,
+          },
+        });
+      })
+      .catch(() => {
+        // Ignore invalid voucher query param
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [voucherIdParam, dispatch]);
+
   const currentStep = Math.min(Math.max(state.step || 1, 1), 4);
   const progressPercent = ((currentStep - 1) / (STEPS.length - 1)) * 100;
 
@@ -168,6 +200,25 @@ export default function Appointment() {
         </div>
       </div>
 
+      {state.selectedVoucher && (
+        <Alert
+          variant="info"
+          className="d-flex justify-content-between align-items-center mb-3 rounded-4 border-0 shadow-sm"
+        >
+          <div>
+            <strong>Đang áp dụng mã ưu đãi:</strong>{" "}
+            <span className="badge bg-primary me-2">{state.selectedVoucher.code}</span>
+            <span>{state.selectedVoucher.name || "Voucher ưu đãi"}</span>
+          </div>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary rounded-pill"
+            onClick={() => dispatch({ type: "SET_VOUCHER", value: null })}
+          >
+            Bỏ chọn
+          </button>
+        </Alert>
+      )}
       {doctorError && <Alert variant="danger">{doctorError}</Alert>}
       {loadingDoctor ? (
         <div className="d-flex align-items-center gap-2 py-4" role="status">

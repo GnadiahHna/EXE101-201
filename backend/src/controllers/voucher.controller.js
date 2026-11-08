@@ -1,6 +1,15 @@
 const voucherService = require('../services/voucher.service');
 const { sendSuccess } = require('../utils/response');
 
+const getPublicActiveVouchers = async (_req, res) => {
+  const vouchers = await voucherService.listActivePublicVouchers();
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'Lấy danh sách voucher đang hoạt động thành công',
+    data: vouchers,
+  });
+};
+
 const getAllVouchers = async (_req, res) => {
   const vouchers = await voucherService.getAllVouchers();
   return sendSuccess(res, { data: vouchers });
@@ -41,6 +50,19 @@ const getMyVouchers = async (req, res) => {
   return sendSuccess(res, { data: vouchers });
 };
 
+const claimVoucher = async (req, res) => {
+  const claimed = await voucherService.claimVoucherForPatient(
+    req.user,
+    req.params.voucherId,
+    req,
+  );
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'Lưu voucher ưu đãi thành công',
+    data: claimed,
+  });
+};
+
 const getVoucherOwners = async (req, res) => {
   const owners = await voucherService.getVoucherOwners(req.params.voucherId);
   return sendSuccess(res, { data: owners });
@@ -61,12 +83,14 @@ const useVoucher = async (req, res) => {
 };
 
 module.exports = {
+  getPublicActiveVouchers,
   getAllVouchers,
   getVoucherById,
   createVoucher,
   updateVoucher,
   deleteVoucher,
   getMyVouchers,
+  claimVoucher,
   getVoucherOwners,
   getUserVouchers,
   useVoucher,

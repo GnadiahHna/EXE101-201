@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { connectDB, disconnectDB } = require('../config/db');
-const { User, Specialty, RssSource, News, syncSequenceFloor } = require('../models');
-const { ROLES, GENDERS, AUTH_PROVIDERS, RSS_SOURCE_STATUSES } = require('../constants/enums');
+const { User, Specialty, RssSource, News, Voucher, Event, syncSequenceFloor } = require('../models');
+const { ROLES, GENDERS, AUTH_PROVIDERS, RSS_SOURCE_STATUSES, VOUCHER_TYPES } = require('../constants/enums');
 
 const DEFAULT_DEV_PASSWORD = process.env.SEED_DEFAULT_PASSWORD || '123456';
 
@@ -340,6 +340,78 @@ async function runSeed() {
     }
     const maxNews = await News.findOne().sort({ id: -1 }).lean();
     await syncSequenceFloor('news', maxNews ? maxNews.id : 10);
+
+    console.log('Seeding active vouchers...');
+    const futureExpiry1 = new Date(Date.now() + 30 * 24 * 3600 * 1000);
+    const futureExpiry2 = new Date(Date.now() + 60 * 24 * 3600 * 1000);
+    const seedVouchers = [
+      {
+        id: 1,
+        code: 'WOMANDAY2026',
+        name: 'Tri ân khách hàng - Giảm 20% phí khám',
+        discountValue: 20,
+        type: VOUCHER_TYPES.DISCOUNT,
+        enable: true,
+        expiryDate: futureExpiry1,
+      },
+      {
+        id: 2,
+        code: 'HEALTHCARE50K',
+        name: 'Phiếu ưu đãi dịch vụ khám sức khỏe 50.000đ',
+        discountValue: 50000,
+        type: VOUCHER_TYPES.SERVICE_TICKET,
+        enable: true,
+        expiryDate: futureExpiry2,
+      },
+    ];
+    for (const v of seedVouchers) {
+      await Voucher.findOneAndUpdate(
+        { code: v.code },
+        { $set: v },
+        { upsert: true, returnDocument: 'after' },
+      );
+    }
+    const maxVoucher = await Voucher.findOne().sort({ id: -1 }).lean();
+    await syncSequenceFloor('vouchers', maxVoucher ? maxVoucher.id : 10);
+
+    console.log('Seeding upcoming events...');
+    const eventStart1 = new Date(Date.now() + 2 * 24 * 3600 * 1000);
+    const eventEnd1 = new Date(Date.now() + 30 * 24 * 3600 * 1000);
+    const eventStart2 = new Date(Date.now() + 5 * 24 * 3600 * 1000);
+    const eventEnd2 = new Date(Date.now() + 45 * 24 * 3600 * 1000);
+    const seedEvents = [
+      {
+        id: 1,
+        title: 'Tri ân khách hàng - Chăm sóc sức khỏe toàn diện',
+        description:
+          'Khi tham gia sự kiện tại phòng khám, khách hàng được tư vấn miễn phí và tặng ngay mã ưu đãi giảm 20% tất cả dịch vụ khám trực tiếp.',
+        location: '123 Nguyễn Văn Linh, Hải Châu, TP. Đà Nẵng',
+        startDate: eventStart1,
+        endDate: eventEnd1,
+        isEnabled: true,
+        voucherId: 1,
+      },
+      {
+        id: 2,
+        title: 'Ngày hội Tầm soát Tim mạch & Cơ Xương Khớp 2026',
+        description:
+          'Chương trình khám sàng lọc cùng đội ngũ Bác sĩ Chuyên khoa II và nhận phiếu ưu đãi dịch vụ 50.000đ.',
+        location: 'Hội trường tầng 2 - Phòng khám Đa khoa',
+        startDate: eventStart2,
+        endDate: eventEnd2,
+        isEnabled: true,
+        voucherId: 2,
+      },
+    ];
+    for (const ev of seedEvents) {
+      await Event.findOneAndUpdate(
+        { id: ev.id },
+        { $set: ev },
+        { upsert: true, returnDocument: 'after' },
+      );
+    }
+    const maxEvent = await Event.findOne().sort({ id: -1 }).lean();
+    await syncSequenceFloor('events', maxEvent ? maxEvent.id : 10);
 
     console.log('Seed completed successfully!');
     console.log(`Default dev password for newly seeded accounts: ${DEFAULT_DEV_PASSWORD}`);

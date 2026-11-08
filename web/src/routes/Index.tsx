@@ -37,6 +37,7 @@ import AdminCreateUser from '../pages/admin/AdminCreateUser';
 import AdminDoctorShifts from '../pages/admin/AdminDoctorShifts';
 import AdminEvents from '../pages/admin/AdminEvents';
 import AdminVouchers from '../pages/admin/AdminVouchers';
+import AdminNews from '../pages/admin/AdminNews';
 //Trang doctor
 import DoctorLayout from '../components/layout/doctorlayouts/DoctorLayout';
 import DoctorDashboard from '../pages/doctor/DoctorDashboard';
@@ -119,6 +120,7 @@ export default function AppRoutes() {
             <Route path="/admin/specialties/create" element={<AdminSpecialty/>} />
             <Route path="/admin/specialties/update/:id" element={<AdminSpecialty />} />
             <Route path="/admin/shifts" element={<AdminDoctorShifts />} />
+            <Route path="/admin/news" element={<AdminNews />} />
             <Route path="/admin/events" element={<AdminEvents />} />
             <Route path="/admin/vouchers" element={<AdminVouchers />} />
           </Route>

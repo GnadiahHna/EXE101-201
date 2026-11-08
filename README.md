@@ -71,7 +71,27 @@ npm start
 
 Make sure the backend is running and `EXPO_PUBLIC_API_URL` points to it.
 
-## Run without Docker
+## Run without Docker (Quick 1-Command Start)
+
+Tại thư mục gốc `ClinicBooking`, bạn có thể chạy đồng thời cả **Backend** (`http://localhost:3000`) và **Web** (`http://localhost:5173`) chỉ bằng **1 câu lệnh**:
+
+```bash
+# Chạy đồng thời cả Backend và Web (nhấn Ctrl + C để dừng cả 2 cùng lúc)
+npm run dev
+
+# Hoặc chạy 1 dòng lệnh trực tiếp từ terminal:
+(cd backend && npm run dev) & (cd web && npm run dev) & wait
+```
+
+Các lệnh tiện ích khác từ thư mục gốc:
+
+```bash
+npm run seed         # Nạp dữ liệu mẫu (Chuyên khoa, Bác sĩ, Bệnh nhân, Voucher, Tin tức...)
+npm test             # Chạy bộ kiểm thử tự động của Backend
+npm run docker:dev   # Chạy bằng Docker Compose
+```
+
+Nếu muốn cài đặt hoặc chạy riêng từng phần:
 
 ```bash
 cd backend && npm install && npm run dev

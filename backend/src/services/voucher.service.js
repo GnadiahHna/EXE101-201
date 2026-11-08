@@ -6,9 +6,10 @@ const {
 } = require('../models');
 const ApiError = require('../utils/ApiError');
 const { parseFlexibleDate } = require('../utils/dateParser');
-const { parsePositiveInt } = require('../utils/normalizers');
-const { VOUCHER_TYPES, AUDIT_ACTIONS } = require('../constants/enums');
+const { parsePositiveInt, escapeRegex } = require('../utils/normalizers');
+const { ROLES, VOUCHER_TYPES, AUDIT_ACTIONS } = require('../constants/enums');
 const { recordAudit, buildAuditDiff, sanitizeSnapshot } = require('./audit.service');
+const { clock } = require('./clock.service');
 
 const serializeVoucher = (voucher) => {
   const v = voucher.toJSON ? voucher.toJSON() : voucher;
@@ -48,6 +49,18 @@ const serializeUserVoucher = (uv, voucher, user) => {
  */
 const getAllVouchers = async () => {
   const vouchers = await Voucher.find({}).sort({ createdAt: -1 });
+  return vouchers.map(serializeVoucher);
+};
+
+/**
+ * List active, non-expired public vouchers for Home page (Guest & Patient).
+ */
+const listActivePublicVouchers = async () => {
+  const now = clock.now();
+  const vouchers = await Voucher.find({
+    enable: true,
+    $or: [{ expiryDate: null }, { expiryDate: { $gt: now } }],
+  }).sort({ expiryDate: 1, id: -1 });
   return vouchers.map(serializeVoucher);
 };
 
@@ -384,14 +397,248 @@ const useVoucher = async (actor, voucherIdParam, userIdParam, req) => {
   return serializeUserVoucher(userVoucher, voucher, user);
 };
 
+/**
+ * Issue/claim a voucher for a specific user (idempotent if already owned).
+ */
+const issueVoucherToUser = async (
+  userIdParam,
+  voucherIdParam,
+  { actor = null, req = null, reason = 'Nhận voucher ưu đãi' } = {},
+) => {
+  const parsedUserId = parsePositiveInt(userIdParam, 'User ID');
+  const parsedVoucherId = parsePositiveInt(voucherIdParam, 'Voucher ID');
+
+  const [user, voucher] = await Promise.all([
+    User.findOne({ id: parsedUserId }).lean(),
+    Voucher.findOne({ id: parsedVoucherId }).lean(),
+  ]);
+
+  if (!user) {
+    throw new ApiError(404, 'Người dùng không tồn tại');
+  }
+  if (!voucher) {
+    throw new ApiError(404, 'Voucher không tồn tại');
+  }
+  if (!voucher.enable) {
+    throw new ApiError(400, 'Voucher này hiện đã bị vô hiệu hóa');
+  }
+
+  const now = clock.now();
+  if (voucher.expiryDate && new Date(voucher.expiryDate) <= now) {
+    throw new ApiError(400, 'Voucher này đã hết hạn sử dụng');
+  }
+
+  let userVoucher = await UserVoucher.findOne({
+    userId: parsedUserId,
+    voucherId: voucher.id,
+  });
+
+  let isNewlyClaimed = false;
+  if (!userVoucher) {
+    try {
+      userVoucher = await UserVoucher.create({
+        userId: parsedUserId,
+        voucherId: voucher.id,
+        issuedAt: now,
+        used: false,
+      });
+      isNewlyClaimed = true;
+    } catch (err) {
+      if (err.code === 11000) {
+        userVoucher = await UserVoucher.findOne({
+          userId: parsedUserId,
+          voucherId: voucher.id,
+        });
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  if (isNewlyClaimed && actor) {
+    await recordAudit({
+      actor,
+      action: AUDIT_ACTIONS.VOUCHER_CLAIM,
+      targetType: 'UserVoucher',
+      targetId: userVoucher.id,
+      reason,
+      changes: {
+        userId: parsedUserId,
+        voucherId: voucher.id,
+        voucherCode: voucher.code,
+      },
+      req,
+    });
+  }
+
+  return serializeUserVoucher(userVoucher, voucher, user);
+};
+
+/**
+ * Patient claims an active public voucher from Home page or Voucher page.
+ */
+const claimVoucherForPatient = async (actor, voucherId, req = null) => {
+  if (!actor || actor.userType !== ROLES.PATIENT) {
+    throw new ApiError(403, 'Chỉ tài khoản bệnh nhân mới có thể lưu và sử dụng voucher');
+  }
+  return issueVoucherToUser(actor.id, voucherId, {
+    actor,
+    req,
+    reason: 'Bệnh nhân lưu voucher từ trang chủ',
+  });
+};
+
+/**
+ * Calculate discount amount for an appointment total given a Voucher.
+ */
+const calculateVoucherDiscount = (voucher, totalAmount) => {
+  if (!voucher || !Number.isFinite(totalAmount) || totalAmount <= 0) {
+    return { discountAmount: 0, finalAmount: Math.max(0, totalAmount || 0) };
+  }
+
+  const rawVal = Number(voucher.discountValue) || 0;
+  if (rawVal <= 0) {
+    return { discountAmount: 0, finalAmount: totalAmount };
+  }
+
+  let discountAmount = 0;
+  if (voucher.type === VOUCHER_TYPES.DISCOUNT) {
+    const pct = Math.min(100, Math.max(0, rawVal));
+    discountAmount = Math.round((totalAmount * pct) / 100);
+  } else {
+    const monetaryValue = rawVal < 1000 ? rawVal * 1000 : rawVal;
+    discountAmount = Math.min(totalAmount, Math.round(monetaryValue));
+  }
+
+  const finalAmount = Math.max(0, totalAmount - discountAmount);
+  return { discountAmount, finalAmount };
+};
+
+/**
+ * Validate and atomically consume a voucher during patient appointment booking.
+ */
+const consumeVoucherForBooking = async ({
+  userId,
+  voucherId,
+  voucherCode,
+  totalAmount,
+}) => {
+  if (!voucherId && !voucherCode) {
+    return null;
+  }
+
+  const now = clock.now();
+  let voucher = null;
+
+  if (voucherId) {
+    const vId = parsePositiveInt(voucherId, 'voucherId');
+    voucher = await Voucher.findOne({ id: vId }).lean();
+  } else if (typeof voucherCode === 'string' && voucherCode.trim()) {
+    const cleanCode = voucherCode.trim().toUpperCase();
+    voucher = await Voucher.findOne({
+      code: { $regex: `^${escapeRegex(cleanCode)}$`, $options: 'i' },
+    }).lean();
+  }
+
+  if (!voucher) {
+    throw new ApiError(404, 'Mã voucher không tồn tại');
+  }
+  if (!voucher.enable) {
+    throw new ApiError(400, 'Voucher này hiện không còn hoạt động');
+  }
+  if (voucher.expiryDate && new Date(voucher.expiryDate) <= now) {
+    throw new ApiError(400, 'Voucher này đã hết hạn sử dụng');
+  }
+
+  let userVoucher = await UserVoucher.findOne({
+    userId,
+    voucherId: voucher.id,
+  });
+
+  if (userVoucher && userVoucher.used) {
+    throw new ApiError(409, `Bạn đã sử dụng mã voucher '${voucher.code}' trước đó`);
+  }
+
+  if (!userVoucher) {
+    try {
+      userVoucher = await UserVoucher.create({
+        userId,
+        voucherId: voucher.id,
+        issuedAt: now,
+        used: true,
+        usedAt: now,
+      });
+    } catch (err) {
+      if (err.code === 11000) {
+        const consumed = await UserVoucher.findOneAndUpdate(
+          { userId, voucherId: voucher.id, used: false },
+          { $set: { used: true, usedAt: now } },
+          { returnDocument: 'after' },
+        );
+        if (!consumed) {
+          throw new ApiError(409, `Mã voucher '${voucher.code}' đã được sử dụng`);
+        }
+        userVoucher = consumed;
+      } else {
+        throw err;
+      }
+    }
+  } else {
+    const consumed = await UserVoucher.findOneAndUpdate(
+      { id: userVoucher.id, used: false },
+      { $set: { used: true, usedAt: now } },
+      { returnDocument: 'after' },
+    );
+    if (!consumed) {
+      throw new ApiError(409, `Mã voucher '${voucher.code}' đã được sử dụng`);
+    }
+    userVoucher = consumed;
+  }
+
+  const { discountAmount, finalAmount } = calculateVoucherDiscount(voucher, totalAmount);
+
+  return {
+    voucher,
+    userVoucher,
+    discountAmount,
+    originalAmount: totalAmount,
+    finalAmount,
+  };
+};
+
+/**
+ * Rollback a consumed UserVoucher if appointment creation fails or is cancelled.
+ */
+const releaseConsumedUserVoucher = async (userVoucherId) => {
+  if (!userVoucherId) return;
+  try {
+    await UserVoucher.updateOne(
+      { id: userVoucherId },
+      { $set: { used: false, usedAt: null, appointmentId: null } },
+    );
+  } catch (err) {
+    console.error('[releaseConsumedUserVoucher] Failed to rollback userVoucher:', err);
+  }
+};
+
 module.exports = {
   getAllVouchers,
+  listAllVouchers: getAllVouchers,
+  listActivePublicVouchers,
   getVoucherById,
   createVoucher,
   updateVoucher,
   deleteVoucher,
   getMyVouchers,
+  issueVoucherToUser,
+  claimVoucherForPatient,
   getVoucherOwners,
   getUserVouchers,
   useVoucher,
+  markVoucherUsedForUser: useVoucher,
+  calculateVoucherDiscount,
+  consumeVoucherForBooking,
+  releaseConsumedUserVoucher,
+  serializeVoucher,
+  serializeUserVoucher,
 };

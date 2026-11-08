@@ -101,6 +101,16 @@ export async function fetchVouchers(): Promise<VoucherItem[]> {
   return extractArray(res.data).map(normalizeVoucher);
 }
 
+export async function fetchPublicVouchers(): Promise<VoucherItem[]> {
+  const res = await http.get("/vouchers/public");
+  return extractArray(res.data).map(normalizeVoucher);
+}
+
+export async function claimVoucher(voucherId: number): Promise<UserVoucher> {
+  const res = await http.post(`/vouchers/${voucherId}/claim`);
+  return normalizeUserVoucher(extractObject(res.data));
+}
+
 export async function fetchVoucherById(id: number): Promise<VoucherItem> {
   const res = await http.get(`/vouchers/${id}`);
   return normalizeVoucher(extractObject(res.data));
