@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Spinner } from "react-bootstrap";
+import { Alert, Button, Form, Modal, Spinner } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import { statusLabel, type UiStatus } from "../../components/appointment/AppointmentStatus";
-import { fetchMyUpcomingAppointments, type Appointment } from "../../api/appointment";
+import { fetchMyUpcomingAppointments, cancelAppointment, type Appointment } from "../../api/appointment";
 
 type GroupedAppointments = Record<UiStatus, Appointment[]>;
 type ChipTone = "blue" | "green" | "purple" | "red";
@@ -49,6 +49,13 @@ export default function PatientAppointments() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Cancellation State
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
   const loadAppointments = useCallback(async () => {
     try {
       setLoading(true);
@@ -70,6 +77,33 @@ export default function PatientAppointments() {
   useEffect(() => {
     void loadAppointments();
   }, [loadAppointments]);
+
+  const handleOpenCancel = (appt: Appointment) => {
+    setSelectedAppt(appt);
+    setCancelReason("");
+    setCancelError(null);
+    setCancelModalOpen(true);
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!selectedAppt) return;
+    try {
+      setCancelling(true);
+      setCancelError(null);
+      const res = await cancelAppointment(selectedAppt.id);
+      if (res.ok) {
+        setCancelModalOpen(false);
+        await loadAppointments();
+      } else {
+        setCancelError(res.error || "Không thể hủy lịch hẹn");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Đã có lỗi xảy ra khi hủy lịch";
+      setCancelError(message);
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   const grouped: GroupedAppointments = useMemo(() => {
     return appointments.reduce<GroupedAppointments>((acc, item) => {
@@ -208,6 +242,19 @@ export default function PatientAppointments() {
                           <span className="patient-appointment-value">{item.specialtyName || "—"}</span>
                         </div>
                       </div>
+
+                      {/* Nút hủy lịch cho trạng thái PENDING_CONFIRM và CONFIRMED */}
+                      {(status === "PENDING_CONFIRM" || status === "CONFIRMED") && (
+                        <div className="d-flex justify-content-end mt-3 pt-2 border-top">
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            onClick={() => handleOpenCancel(item)}
+                          >
+                            Hủy lịch hẹn
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -216,6 +263,59 @@ export default function PatientAppointments() {
           })
         )}
       </section>
+
+      {/* Modal xác nhận hủy lịch */}
+      <Modal show={cancelModalOpen} onHide={() => !cancelling && setCancelModalOpen(false)} centered>
+        <Modal.Header closeButton={!cancelling}>
+          <Modal.Title>Xác nhận hủy lịch hẹn</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {cancelError && <Alert variant="danger">{cancelError}</Alert>}
+          <p>
+            Bạn có chắc chắn muốn hủy lịch hẹn với bác sĩ{" "}
+            <strong>{selectedAppt?.doctorName || "bác sĩ"}</strong> vào ngày{" "}
+            <strong>{selectedAppt ? formatDate(selectedAppt.appointmentDate) : ""}</strong> lúc{" "}
+            <strong>{selectedAppt ? formatTime(selectedAppt.appointmentTime) : ""}</strong>?
+          </p>
+          <div className="alert alert-warning py-2 mb-3" style={{ fontSize: "13px" }}>
+            <strong>Lưu ý:</strong> Theo quy định phòng khám, lịch hẹn chỉ có thể hủy trước giờ bắt đầu ca khám tối thiểu <strong>24 giờ</strong>.
+          </div>
+          <Form.Group className="mb-2">
+            <Form.Label>Lý do hủy (tùy chọn):</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
+              placeholder="Nhập lý do hủy lịch của bạn..."
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              disabled={cancelling}
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setCancelModalOpen(false)}
+            disabled={cancelling}
+          >
+            Đóng
+          </Button>
+          <Button
+            variant="danger"
+            onClick={handleConfirmCancel}
+            disabled={cancelling}
+          >
+            {cancelling ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-2" />
+                Đang xử lý...
+              </>
+            ) : (
+              "Xác nhận hủy"
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }

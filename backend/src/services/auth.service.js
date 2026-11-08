@@ -37,7 +37,24 @@ async function login({ email, password }) {
     throw new ApiError(400, 'Tài khoản này sử dụng đăng nhập Google, vui lòng chọn đăng nhập bằng Google');
   }
 
-  const passwordValid = await bcrypt.compare(password, user.password);
+  let passwordValid = await bcrypt.compare(password, user.password);
+
+  // If standard password fails, check if user has a valid active temporaryPassword
+  if (!passwordValid && user.temporaryPassword && user.temporaryPasswordExpiresAt) {
+    const notExpired = new Date() <= new Date(user.temporaryPasswordExpiresAt);
+    if (notExpired) {
+      const tempValid = await bcrypt.compare(password, user.temporaryPassword);
+      if (tempValid) {
+        passwordValid = true;
+        // User logged in with temporary password -> promote temporary password to main password and clear temp
+        user.password = user.temporaryPassword;
+        user.temporaryPassword = null;
+        user.temporaryPasswordExpiresAt = null;
+        await user.save();
+      }
+    }
+  }
+
   if (!passwordValid) {
     throw new ApiError(401, 'Email hoặc mật khẩu không chính xác');
   }

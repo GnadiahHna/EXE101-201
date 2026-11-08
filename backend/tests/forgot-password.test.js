@@ -108,3 +108,4 @@ describe('Forgot & Reset Password API Tests', () => {
     assert.strictEqual(loginRes.body.success, true);
   });
 });
+
