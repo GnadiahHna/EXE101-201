@@ -151,3 +151,6 @@ vite.config.ts.timestamp-*
 # macOS & runtime uploads
 .DS_Store
 backend/uploads/
+
+# Codex backups
+.codex-backups/

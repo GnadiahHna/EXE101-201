@@ -294,7 +294,7 @@ async function runSeed() {
     console.log('Seeding specialties...');
     for (const sp of SEED_SPECIALTIES) {
       await Specialty.findOneAndUpdate(
-        { id: sp.id },
+        { $or: [{ id: sp.id }, { name: sp.name }] },
         { $set: sp },
         { upsert: true, returnDocument: 'after' },
       );
@@ -315,6 +315,19 @@ async function runSeed() {
           isEnable: true,
           authProvider: AUTH_PROVIDERS.LOCAL,
         });
+      } else {
+        await User.updateOne(
+          { _id: existing._id },
+          {
+            $set: {
+              ...u,
+              email: u.email.toLowerCase(),
+              password: passwordHash,
+              isEnable: true,
+              authProvider: AUTH_PROVIDERS.LOCAL,
+            },
+          },
+        );
       }
     }
 

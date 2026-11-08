@@ -151,7 +151,7 @@ export default function DoctorGroupHealth() {
                       id={`result-file-${assignment.id}`}
                       type="file"
                       accept=".csv,.xls,.xlsx,.pdf"
-                      onChange={(event) => setFiles((current) => ({ ...current, [assignment.id]: event.target.files?.[0] }))}
+                      onChange={(event) => setFiles((current) => ({ ...current, [assignment.id]: (event.target as HTMLInputElement).files?.[0] }))}
                     />
                   </Form.Group>
                   <Button type="submit" disabled={busyId === assignment.id || !files[assignment.id]}>

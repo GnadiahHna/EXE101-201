@@ -10,6 +10,9 @@ export type AdminUser = {
   description?: string;
   experience?: string;
   isEnabled?: boolean; // For tracking enabled/disabled status
+  userType?: string;
+  role?: string;
+  specialtyName?: string;
 };
 
 type UnknownRecord = Record<string, unknown>;
@@ -56,7 +59,15 @@ function normalizeUser(raw: unknown): AdminUser {
     degree: pickString(raw.degree),
     description: pickString(raw.description),
     experience: pickString(raw.experience),
-    isEnabled: pickBoolean(raw.isEnabled) ?? pickBoolean(raw.isEnable) ?? undefined,
+    isEnabled:
+      typeof raw.isEnable === "boolean"
+        ? raw.isEnable
+        : typeof raw.isEnabled === "boolean"
+        ? raw.isEnabled
+        : pickBoolean(raw.isEnabled) ?? pickBoolean(raw.isEnable) ?? true,
+    userType: pickString(raw.userType) ?? pickString(raw.role),
+    role: pickString(raw.userType) ?? pickString(raw.role),
+    specialtyName: pickString(raw.specialtyName),
   };
 }
 
@@ -89,13 +100,12 @@ export async function fetchDisabledUsers(): Promise<AdminUser[]> {
   return normalizeUserArray(pickArray(res.data));
 }
 
-// Ban user (disable)
+// Ban user (disable / lock)
 export async function banUser(userId: number): Promise<void> {
   await http.delete(`/admin/users/${userId}`);
 }
 
-// Unban user (activate)
+// Unban user (activate / unlock)
 export async function unbanUser(userId: number): Promise<void> {
   await http.post(`/admin/activate/${userId}`);
 }
-
