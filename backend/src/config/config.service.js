@@ -85,6 +85,23 @@ class ConfigService {
     return this.getString('FRONTEND_URL', 'http://localhost:5173').replace(/\/+$/, '');
   }
 
+  // --- OAuth2 (Google & Facebook) ---
+  get googleClientId() {
+    return this.getString('GOOGLE_CLIENT_ID', '');
+  }
+
+  get googleClientSecret() {
+    return this.getString('GOOGLE_CLIENT_SECRET', '');
+  }
+
+  get facebookClientId() {
+    return this.getString('FACEBOOK_CLIENT_ID', this.getString('FACEBOOK_APP_ID', ''));
+  }
+
+  get facebookClientSecret() {
+    return this.getString('FACEBOOK_CLIENT_SECRET', this.getString('FACEBOOK_APP_SECRET', ''));
+  }
+
   // --- Rate Limiting ---
   get rateLimitWindowMs() {
     return this.getNumber('RATE_LIMIT_WINDOW_MS', 60000);

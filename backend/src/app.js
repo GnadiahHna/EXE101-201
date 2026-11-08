@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const env = require('./config/env');
 const routes = require('./routes');
+const oauthRoutes = require('./routes/oauth.routes');
 const { notFound, errorHandler, getTraceId } = require('./middlewares/error.middleware');
 const { defaultRateLimiter } = require('./middlewares/rateLimiter.middleware');
 
@@ -62,6 +63,9 @@ app.use('/images/file/uploads', express.static(env.uploadsDir));
 app.get('/', (_req, res) => {
   res.json({ message: 'Welcome to Clinic Booking API' });
 });
+
+// OAuth2 Social Login endpoints (Google & Facebook)
+app.use('/oauth2', oauthRoutes);
 
 app.use('/api', routes);
 
