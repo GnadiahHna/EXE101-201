@@ -94,6 +94,15 @@ export default function AdminVouchers() {
   const [deleteTarget, setDeleteTarget] = useState<VoucherItem | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Live timer: updates current time every 5 seconds so expired vouchers immediately flip badge without reload
+  const [nowTs, setNowTs] = useState<number>(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNowTs(Date.now());
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
   const loadVouchers = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -202,6 +211,12 @@ export default function AdminVouchers() {
       return;
     }
 
+    const expiryDateObj = new Date(form.expiryDateLocal);
+    if (!Number.isNaN(expiryDateObj.getTime()) && expiryDateObj.getTime() <= Date.now()) {
+      setError("Hạn sử dụng voucher phải là thời gian trong tương lai.");
+      return;
+    }
+
     const payload: VoucherPayload = {
       code: form.code.trim(),
       name: form.name.trim(),
@@ -299,9 +314,16 @@ export default function AdminVouchers() {
                     <td>{formatDiscount(voucher.type, voucher.discountValue)}</td>
                     <td>{formatDisplayDate(voucher.expiryDate)}</td>
                     <td>
-                      <Badge bg={voucher.enable ? "success" : "secondary"}>
-                        {voucher.enable ? "Đang hoạt động" : "Đã vô hiệu"}
-                      </Badge>
+                      {(() => {
+                        const isExpired = voucher.expiryDate && new Date(voucher.expiryDate).getTime() < nowTs;
+                        if (!voucher.enable) {
+                          return <Badge bg="secondary">Đã vô hiệu</Badge>;
+                        }
+                        if (isExpired) {
+                          return <Badge bg="warning" text="dark">Hết hạn</Badge>;
+                        }
+                        return <Badge bg="success">Đang hoạt động</Badge>;
+                      })()}
                     </td>
                     <td>
                       <div className="d-flex gap-2">

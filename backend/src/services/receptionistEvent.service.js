@@ -186,11 +186,16 @@ async function confirmEventAttendance(actor, eventId, userId) {
     },
   });
 
+  const participantData = formatParticipant(updatedRegistration, participantUser);
+  if (grantedVoucher) {
+    participantData.grantedVoucherId = grantedVoucher.voucherId ?? grantedVoucher.id ?? event.voucherId;
+  }
+
   return {
     success: true,
     idempotent: false,
     message: 'Xác nhận người tham dự sự kiện thành công',
-    data: formatParticipant(updatedRegistration, participantUser),
+    data: participantData,
   };
 }
 

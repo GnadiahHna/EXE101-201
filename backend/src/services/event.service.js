@@ -1,6 +1,7 @@
 const {
   Event,
   UserEvent,
+  EventRegistration,
   Voucher,
   UserVoucher,
   User,
@@ -95,6 +96,9 @@ const createEvent = async (actor, payload, req) => {
   if (startDate.getTime() >= endDate.getTime()) {
     throw new ApiError(400, 'Thời gian kết thúc phải sau thời gian bắt đầu sự kiện');
   }
+  if (endDate.getTime() <= Date.now()) {
+    throw new ApiError(400, 'Thời gian kết thúc sự kiện phải là thời gian trong tương lai');
+  }
 
   let voucherId = null;
   let linkedVoucher = null;
@@ -176,6 +180,9 @@ const updateEvent = async (actor, idParam, payload, req) => {
   if (newStart.getTime() >= newEnd.getTime()) {
     throw new ApiError(400, 'Thời gian kết thúc phải sau thời gian bắt đầu sự kiện');
   }
+  if (newEnd.getTime() <= Date.now()) {
+    throw new ApiError(400, 'Thời gian kết thúc sự kiện phải là thời gian trong tương lai');
+  }
   event.startDate = newStart;
   event.endDate = newEnd;
 
@@ -237,7 +244,9 @@ const deleteEvent = async (actor, idParam, req) => {
     throw new ApiError(404, `Không tìm thấy sự kiện #${id}`);
   }
 
-  const regCount = await UserEvent.countDocuments({ eventId: id });
+  const userEventCount = await UserEvent.countDocuments({ eventId: id });
+  const eventRegCount = EventRegistration ? await EventRegistration.countDocuments({ eventId: id }) : 0;
+  const regCount = userEventCount + eventRegCount;
   if (regCount > 0) {
     // Preserve participant history
     event.isEnabled = false;

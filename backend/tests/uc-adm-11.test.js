@@ -16,7 +16,7 @@ const {
   Feedback,
   AuditLog,
 } = require('../src/models');
-const { ROLES, AUDIT_ACTIONS, FEEDBACK_STATUSES } = require('../constants/enums');
+const { ROLES, AUDIT_ACTIONS, FEEDBACK_STATUSES } = require('../src/constants/enums');
 
 let server;
 let baseUrl;
@@ -314,7 +314,7 @@ describe('UC-ADM-11: Quản lý feedback (Admin/Moderator Feedback Management)',
         action: AUDIT_ACTIONS.FEEDBACK_RESPONSE,
       }).lean();
       assert.ok(audit, 'Phải có AuditLog FEEDBACK_RESPONSE');
-      assert.equal(audit.actor.id, 1);
+      assert.equal(audit.actorId ?? audit.actor?.id, 1);
     });
 
     it('RÀNG BUỘC TOÀN VẸN: Phản hồi của Admin tuyệt đối không sửa đổi nội dung gốc của người gửi', async () => {

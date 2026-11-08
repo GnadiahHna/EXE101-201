@@ -116,6 +116,9 @@ const createVoucher = async (actor, payload, req) => {
   }
 
   const expiryDate = parseFlexibleDate(payload.expiryDate, 'Hạn sử dụng', false);
+  if (expiryDate && expiryDate.getTime() <= Date.now()) {
+    throw new ApiError(400, 'Hạn sử dụng voucher phải là thời gian trong tương lai');
+  }
 
   const enable = payload.enable !== undefined ? Boolean(payload.enable) : true;
   const name = payload.name ? String(payload.name).trim() : null;
@@ -202,7 +205,11 @@ const updateVoucher = async (actor, idParam, payload, req) => {
   }
 
   if (payload?.expiryDate !== undefined) {
-    voucher.expiryDate = parseFlexibleDate(payload.expiryDate, 'Hạn sử dụng', false);
+    const parsedExpiry = parseFlexibleDate(payload.expiryDate, 'Hạn sử dụng', false);
+    if (parsedExpiry && parsedExpiry.getTime() <= Date.now()) {
+      throw new ApiError(400, 'Hạn sử dụng voucher phải là thời gian trong tương lai');
+    }
+    voucher.expiryDate = parsedExpiry;
   }
 
   let statusChanged = false;

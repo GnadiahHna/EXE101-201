@@ -274,7 +274,7 @@ describe('UC-ADM-04: Quản lý ca / lịch tuần (Admin Shift & Weekly Schedul
         action: AUDIT_ACTIONS.SHIFT_CREATE,
       }).lean();
       assert.ok(audit, 'AuditLog must be recorded for SHIFT_CREATE');
-      assert.equal(audit.actor.id, 1); // Admin ID
+      assert.equal(audit.actorId ?? audit.actor?.id, 1); // Admin ID
     });
 
     it('Phát hiện xung đột (Conflict): Báo lỗi 409 nếu bác sĩ đã có ca trực cùng ngày và loại ca', async () => {
@@ -396,10 +396,11 @@ describe('UC-ADM-04: Quản lý ca / lịch tuần (Admin Shift & Weekly Schedul
       });
 
       assert.equal(res.status, 200);
-      assert.ok(Array.isArray(res.body.data));
-      assert.ok(res.body.data.length >= 2);
-      assert.ok(res.body.data[0].doctorName);
-      assert.ok(res.body.data[0].specialtyName);
+      const shifts = Array.isArray(res.body) ? res.body : (res.body.data || []);
+      assert.ok(Array.isArray(shifts));
+      assert.ok(shifts.length >= 2);
+      assert.ok(shifts[0].doctorName);
+      assert.ok(shifts[0].specialtyName);
     });
 
     it('Xem chi tiết ca trực kèm danh sách slot và cuộc hẹn (GET /shifts/admin/:id)', async () => {

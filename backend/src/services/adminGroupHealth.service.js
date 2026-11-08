@@ -1301,7 +1301,12 @@ async function updateAssignment(actor, assignmentIdParam, payload = {}, req = nu
     req,
   });
 
-  return getAssignmentDetail(assignment.id);
+  const detail = await getAssignmentDetail(assignment.id);
+  return {
+    ...detail.assignment,
+    assignment: detail.assignment,
+    request: detail.request,
+  };
 }
 
 /**

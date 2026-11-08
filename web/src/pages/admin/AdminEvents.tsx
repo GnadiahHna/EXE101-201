@@ -87,6 +87,15 @@ export default function AdminEvents() {
   const [deleteTarget, setDeleteTarget] = useState<EventItem | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Live timer: updates current time every 5 seconds so ended events immediately flip badge without reload
+  const [nowTs, setNowTs] = useState<number>(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNowTs(Date.now());
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
   const loadEvents = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -181,8 +190,12 @@ export default function AdminEvents() {
       setError("Vui lòng nhập thời gian bắt đầu và kết thúc hợp lệ.");
       return;
     }
-    if (new Date(form.startDateLocal) > new Date(form.endDateLocal)) {
+    if (new Date(form.startDateLocal) >= new Date(form.endDateLocal)) {
       setError("Thời gian kết thúc phải sau thời gian bắt đầu.");
+      return;
+    }
+    if (new Date(form.endDateLocal).getTime() <= Date.now()) {
+      setError("Thời gian kết thúc sự kiện phải là thời gian trong tương lai.");
       return;
     }
     setSaving(true);
@@ -298,9 +311,16 @@ export default function AdminEvents() {
                       )}
                     </td>
                     <td>
-                      <Badge bg={eventItem.isEnabled ? "success" : "secondary"}>
-                        {eventItem.isEnabled ? "Đang hiển thị" : "Đã ẩn"}
-                      </Badge>
+                      {(() => {
+                        const isEnded = eventItem.endDate && new Date(eventItem.endDate).getTime() < nowTs;
+                        if (!eventItem.isEnabled) {
+                          return <Badge bg="secondary">Đã ẩn</Badge>;
+                        }
+                        if (isEnded) {
+                          return <Badge bg="warning" text="dark">Đã kết thúc</Badge>;
+                        }
+                        return <Badge bg="success">Đang hiển thị</Badge>;
+                      })()}
                     </td>
                     <td>
                       <div className="d-flex gap-2">
@@ -416,11 +436,6 @@ export default function AdminEvents() {
               onChange={(e) => handleFormChange("isEnabled", e.target.checked)}
             />
           </Modal.Body>
-          {error && (
-                <Alert variant="danger" onClose={() => setError("")} dismissible>
-                {error}
-                </Alert>
-            )}
           <Modal.Footer>
             <Button variant="outline-secondary" onClick={closeForm} disabled={saving}>
               Hủy

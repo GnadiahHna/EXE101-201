@@ -18,7 +18,7 @@ const {
   Appointment,
   AuditLog,
 } = require('../src/models');
-const { ROLES, AUDIT_ACTIONS } = require('../constants/enums');
+const { ROLES, AUDIT_ACTIONS } = require('../src/constants/enums');
 
 let server;
 let baseUrl;

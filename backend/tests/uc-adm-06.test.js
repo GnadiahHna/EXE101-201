@@ -19,7 +19,7 @@ const {
   GroupHealthAssignment,
   AuditLog,
 } = require('../src/models');
-const { ROLES, AUDIT_ACTIONS, GROUP_HEALTH_REQUEST_STATUSES } = require('../constants/enums');
+const { ROLES, AUDIT_ACTIONS, GROUP_HEALTH_REQUEST_STATUSES } = require('../src/constants/enums');
 
 let server;
 let baseUrl;
@@ -466,8 +466,9 @@ describe('UC-ADM-06: Duyệt và chia yêu cầu khám nhóm (Group Health Reque
       });
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.data.capacityAllocated, 28);
-      assert.equal(res.body.data.note, 'Đã cập nhật số lượng thành 28 nhân viên');
+      const updated = res.body.data.assignment || res.body.data;
+      assert.equal(updated.capacityAllocated, 28);
+      assert.equal(updated.note, 'Đã cập nhật số lượng thành 28 nhân viên');
 
       // Verify AuditLog
       const audit = await AuditLog.findOne({

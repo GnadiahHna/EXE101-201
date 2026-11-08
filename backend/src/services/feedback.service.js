@@ -264,7 +264,7 @@ class FeedbackService {
     const userId = Number(user.id || user.userId);
     const isAdmin = user && (user.userType === 'Admin' || user.role === 'Admin');
     if (!isAdmin && Number(feedback.userId) !== userId) {
-      throw new ApiError(404, `Không tìm thấy đánh giá #${id}`, 'FEEDBACK_NOT_FOUND');
+      throw new ApiError(403, 'Bạn không có quyền chỉnh sửa đánh giá này', 'FORBIDDEN');
     }
 
     // Kiểm tra thời hạn sửa (nếu là bệnh nhân)
@@ -394,7 +394,7 @@ class FeedbackService {
           role: actor.userType || actor.role,
           email: actor.email,
         },
-        action: AUDIT_ACTIONS.DELETE_FEEDBACK || 'DELETE_FEEDBACK',
+        action: AUDIT_ACTIONS.FEEDBACK_DELETE || AUDIT_ACTIONS.DELETE_FEEDBACK || 'FEEDBACK_DELETE',
         targetType: 'Feedback',
         targetId: feedback.id,
         reason: `Người dùng xóa phản hồi #${feedback.id}`,
