@@ -4,6 +4,8 @@ import { http } from "./http";
 export interface FeedbackItem {
   id: number;
   userId?: number;
+  appointmentId?: number;
+  doctorId?: number;
   patientName: string;
   patientEmail?: string;
   rating: number;
@@ -11,8 +13,14 @@ export interface FeedbackItem {
   comment: string;
   category?: string;
   isAnonymous?: boolean;
+  status?: 'PENDING' | 'APPROVED' | 'PUBLISHED' | 'HIDDEN' | 'REJECTED';
   adminResponse?: string;
   adminRespondedAt?: string;
+  adminRespondedBy?: number | null;
+  adminRespondedByName?: string | null;
+  moderatedBy?: number | null;
+  moderatedByName?: string | null;
+  moderatedAt?: string | null;
   createdAt: string;
   updatedAt?: string;
   isOwner?: boolean;
@@ -30,6 +38,12 @@ export interface FeedbackStats {
   averageRating: number;
   totalFeedbacks: number;
   starCounts: Record<number, number>;
+}
+
+export interface FeedbackFilterParams {
+  status?: string;
+  rating?: number;
+  category?: string;
 }
 
 export async function fetchMyFeedbacks(): Promise<FeedbackItem[]> {
@@ -62,4 +76,26 @@ export async function updateFeedback(
 
 export async function deleteFeedback(id: number): Promise<void> {
   await http.delete(`/feedbacks/${id}`);
+}
+
+// ==========================================
+// UC-ADM-11: Admin Moderation Endpoints
+// ==========================================
+export async function fetchAdminFeedbacks(params?: FeedbackFilterParams): Promise<FeedbackItem[]> {
+  const res = await http.get("/feedbacks/admin/all", { params });
+  return (res.data?.data ?? res.data) as FeedbackItem[];
+}
+
+export async function respondToFeedbackAdmin(id: number, response: string): Promise<FeedbackItem> {
+  const res = await http.post(`/feedbacks/admin/${id}/respond`, { response });
+  return (res.data?.data ?? res.data) as FeedbackItem;
+}
+
+export async function updateFeedbackStatusAdmin(id: number, status: string): Promise<FeedbackItem> {
+  const res = await http.put(`/feedbacks/admin/${id}/status`, { status });
+  return (res.data?.data ?? res.data) as FeedbackItem;
+}
+
+export async function deleteFeedbackAdmin(id: number): Promise<void> {
+  await http.delete(`/feedbacks/admin/${id}`);
 }

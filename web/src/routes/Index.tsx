@@ -38,6 +38,7 @@ import AdminDoctorShifts from '../pages/admin/AdminDoctorShifts';
 import AdminEvents from '../pages/admin/AdminEvents';
 import AdminVouchers from '../pages/admin/AdminVouchers';
 import AdminNews from '../pages/admin/AdminNews';
+import AdminFeedback from '../pages/admin/AdminFeedback';
 //Trang doctor
 import DoctorLayout from '../components/layout/doctorlayouts/DoctorLayout';
 import DoctorDashboard from '../pages/doctor/DoctorDashboard';
@@ -123,6 +124,7 @@ export default function AppRoutes() {
             <Route path="/admin/news" element={<AdminNews />} />
             <Route path="/admin/events" element={<AdminEvents />} />
             <Route path="/admin/vouchers" element={<AdminVouchers />} />
+            <Route path="/admin/feedbacks" element={<AdminFeedback />} />
           </Route>
         </Route>
       </Route>

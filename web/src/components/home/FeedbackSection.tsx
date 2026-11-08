@@ -18,26 +18,40 @@ export default function FeedbackSection() {
   const [stats, setStats] = useState<FeedbackStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [starFilter, setStarFilter] = useState<number | null>(null);
-  const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [nowTs, setNowTs] = useState<number>(() => Date.now());
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
-    Promise.all([fetchPublicFeedbacks(), fetchFeedbackStats()])
-      .then(([list, statsData]) => {
-        if (!alive) return;
-        setFeedbacks(list);
-        setStats(statsData);
-      })
-      .catch((err) => {
-        console.error("Không thể tải đánh giá phòng khám:", err);
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
+
+    const loadData = (showSpinner = false) => {
+      if (showSpinner) setLoading(true);
+      Promise.all([fetchPublicFeedbacks(), fetchFeedbackStats()])
+        .then(([list, statsData]) => {
+          if (!alive) return;
+          setFeedbacks(list);
+          setStats(statsData);
+        })
+        .catch((err) => {
+          console.error("Không thể tải đánh giá phòng khám:", err);
+        })
+        .finally(() => {
+          if (alive && showSpinner) setLoading(false);
+        });
+    };
+
+    // Initial fetch with spinner
+    loadData(true);
+
+    // Live Real-time Sync: Auto-refresh data and update relative time every 4 seconds
+    const interval = setInterval(() => {
+      setNowTs(Date.now());
+      loadData(false);
+    }, 4000);
 
     return () => {
       alive = false;
+      clearInterval(interval);
     };
   }, []);
 
@@ -46,14 +60,28 @@ export default function FeedbackSection() {
     return feedbacks.filter((f) => f.rating === starFilter);
   }, [feedbacks, starFilter]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredFeedbacks.length / PAGE_SIZE));
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(1);
+    }
+  }, [totalPages, currentPage]);
+
   const displayedFeedbacks = useMemo(() => {
-    return filteredFeedbacks.slice(0, visibleCount);
-  }, [filteredFeedbacks, visibleCount]);
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredFeedbacks.slice(start, start + PAGE_SIZE);
+  }, [filteredFeedbacks, currentPage]);
 
   const formatDate = (isoString?: string) => {
     if (!isoString) return "—";
     try {
       const d = new Date(isoString);
+      const diffSec = Math.floor((nowTs - d.getTime()) / 1000);
+      if (diffSec >= 0 && diffSec < 60) return "Vừa xong";
+      if (diffSec >= 60 && diffSec < 3600) return `${Math.floor(diffSec / 60)} phút trước`;
+      if (diffSec >= 3600 && diffSec < 86400) return `${Math.floor(diffSec / 3600)} giờ trước`;
+      if (diffSec >= 86400 && diffSec < 86400 * 3) return `${Math.floor(diffSec / 86400)} ngày trước`;
       return d.toLocaleDateString("vi-VN", {
         year: "numeric",
         month: "short",
@@ -168,27 +196,38 @@ export default function FeedbackSection() {
               }`}
               onClick={() => {
                 setStarFilter(null);
-                setVisibleCount(PAGE_SIZE);
+                setCurrentPage(1);
               }}
             >
               Tất cả ({feedbacks.length})
             </button>
             {[5, 4, 3, 2, 1].map((s) => {
               const count = feedbacks.filter((f) => f.rating === s).length;
-              if (count === 0) return null;
+              const isActive = starFilter === s;
               return (
                 <button
                   key={s}
                   type="button"
                   className={`home-feedback-filter-chip ${
-                    starFilter === s ? "is-active" : ""
+                    isActive ? "is-active" : ""
                   }`}
                   onClick={() => {
                     setStarFilter(starFilter === s ? null : s);
-                    setVisibleCount(PAGE_SIZE);
+                    setCurrentPage(1);
                   }}
                 >
-                  {s} sao ({count})
+                  <span className="d-inline-flex align-items-center gap-1">
+                    <span
+                      style={{
+                        color: isActive ? "#fde047" : "#f59e0b",
+                        letterSpacing: "1px",
+                        fontSize: "14px",
+                      }}
+                    >
+                      {"★".repeat(s)}
+                    </span>
+                    <span>({count})</span>
+                  </span>
                 </button>
               );
             })}
@@ -278,28 +317,61 @@ export default function FeedbackSection() {
               ))}
             </div>
 
-            {/* View more / collapse button */}
-            {filteredFeedbacks.length > PAGE_SIZE && (
-              <div className="home-feedback-more-wrap">
-                {visibleCount < filteredFeedbacks.length ? (
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="home-feedback-pagination d-flex flex-column align-items-center gap-2">
+                <div className="d-flex align-items-center gap-1">
                   <button
                     type="button"
-                    className="home-feedback-more-btn"
-                    onClick={() =>
-                      setVisibleCount((prev) => prev + PAGE_SIZE)
-                    }
+                    className="home-feedback-page-btn"
+                    disabled={currentPage === 1}
+                    onClick={() => {
+                      setCurrentPage((p) => Math.max(1, p - 1));
+                      document.getElementById("clinic-feedbacks")?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    title="Trang trước"
                   >
-                    Xem thêm đánh giá ({filteredFeedbacks.length - visibleCount} còn lại)
+                    ‹ Trước
                   </button>
-                ) : (
+
+                  {Array.from({ length: totalPages }, (_, idx) => idx + 1)
+                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                    .map((p, idx, arr) => {
+                      const showEllipsisBefore = idx > 0 && p - arr[idx - 1] > 1;
+                      return (
+                        <span key={p} className="d-inline-flex align-items-center">
+                          {showEllipsisBefore && <span className="px-2 text-muted fw-bold">...</span>}
+                          <button
+                            type="button"
+                            className={`home-feedback-page-btn ${p === currentPage ? "is-active" : ""}`}
+                            onClick={() => {
+                              setCurrentPage(p);
+                              document.getElementById("clinic-feedbacks")?.scrollIntoView({ behavior: "smooth" });
+                            }}
+                          >
+                            {p}
+                          </button>
+                        </span>
+                      );
+                    })}
+
                   <button
                     type="button"
-                    className="home-feedback-more-btn"
-                    onClick={() => setVisibleCount(PAGE_SIZE)}
+                    className="home-feedback-page-btn"
+                    disabled={currentPage === totalPages}
+                    onClick={() => {
+                      setCurrentPage((p) => Math.min(totalPages, p + 1));
+                      document.getElementById("clinic-feedbacks")?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    title="Trang sau"
                   >
-                    Thu gọn
+                    Sau ›
                   </button>
-                )}
+                </div>
+
+                <div className="text-muted small mt-1">
+                  Trang <strong>{currentPage}</strong> / <strong>{totalPages}</strong> (Hiển thị {displayedFeedbacks.length} / {filteredFeedbacks.length} đánh giá)
+                </div>
               </div>
             )}
           </>

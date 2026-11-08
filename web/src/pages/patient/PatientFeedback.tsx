@@ -567,16 +567,31 @@ export default function PatientFeedback() {
             >
               Tất cả ({publicFeedbacks.length})
             </button>
-            {[5, 4, 3, 2, 1].map((s) => (
-              <button
-                key={s}
-                type="button"
-                className={`feedback-filter-btn ${starFilter === s ? "is-active" : ""}`}
-                onClick={() => setStarFilter(starFilter === s ? null : s)}
-              >
-                {s} sao ({publicFeedbacks.filter((f) => f.rating === s).length})
-              </button>
-            ))}
+            {[5, 4, 3, 2, 1].map((s) => {
+              const count = publicFeedbacks.filter((f) => f.rating === s).length;
+              const isActive = starFilter === s;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  className={`feedback-filter-btn ${isActive ? "is-active" : ""}`}
+                  onClick={() => setStarFilter(starFilter === s ? null : s)}
+                >
+                  <span className="d-inline-flex align-items-center gap-1">
+                    <span
+                      style={{
+                        color: isActive ? "#fde047" : "#f59e0b",
+                        letterSpacing: "1px",
+                        fontSize: "14px",
+                      }}
+                    >
+                      {"★".repeat(s)}
+                    </span>
+                    <span>({count})</span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Public Feedback Items */}
