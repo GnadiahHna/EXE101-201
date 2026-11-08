@@ -229,6 +229,8 @@ export default function Step4Review() {
             type: appointmentType,
           },
           shiftId: state.shiftId ?? undefined,
+          slotId: state.slotId ?? undefined,
+          appointmentTime: state.slotStartTime ?? undefined,
           patients: patientsPayload,
           voucherId: state.selectedVoucher?.voucherId ?? null,
           voucherCode: state.selectedVoucher?.code ?? null,
@@ -293,7 +295,9 @@ export default function Step4Review() {
         }
 
         const apptTime =
-          pendingBookingData?.appointmentTime || state.shiftLabel || "08:00 - 11:30";
+          pendingBookingData?.appointmentTime ||
+          (state.slotStartTime ? `${state.slotStartTime} - ${state.slotEndTime || ""}` : state.shiftLabel) ||
+          "08:00 - 11:30";
         const apptDate = formatDate(
           pendingBookingData?.appointmentDate || state.dateISO
         );
@@ -438,6 +442,15 @@ export default function Step4Review() {
                   <div>
                     <strong>Ca:</strong> {state.shiftLabel ?? "—"}
                   </div>
+                  {state.slotStartTime && (
+                    <div>
+                      <strong>Giờ khám dự kiến:</strong>{" "}
+                      <span className="text-primary fw-bold">
+                        {state.slotStartTime} - {state.slotEndTime || ""}
+                        {state.queueOrder ? ` (Lượt #${state.queueOrder})` : ""}
+                      </span>
+                    </div>
+                  )}
                   <div>
                     <strong>Hình thức:</strong>{" "}
                     {state.appointmentType === "ONLINE" ? "Khám Online" : "Khám tại phòng khám"}

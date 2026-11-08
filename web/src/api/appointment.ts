@@ -276,6 +276,9 @@ export type BookAppointmentPayload = {
   };
   patients?: BookAppointmentPatientPayload[];
   shiftId?: number | null;
+  slotId?: number | null;
+  slotIds?: number[];
+  appointmentTime?: string;
   voucherId?: number | null;
   voucherCode?: string | null;
 };

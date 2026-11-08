@@ -39,6 +39,11 @@ type State = {
   shiftLabel?: string;
   shiftAvailableSlots?: number;
   shiftTotalSlots?: number;
+  slotId?: number | null;
+  slotStartTime?: string;
+  slotEndTime?: string;
+  slotNumber?: number;
+  queueOrder?: number;
   patientSelections: PatientSelection[];
   selectedVoucher: SelectedVoucherInfo | null;
 };
@@ -78,6 +83,11 @@ type Action =
       shiftName?: ShiftName;
       availableSlots?: number;
       totalSlots?: number;
+      slotId?: number | null;
+      slotStartTime?: string;
+      slotEndTime?: string;
+      slotNumber?: number;
+      queueOrder?: number;
     }
   | { type: "SET_PATIENT_SELECTIONS"; value: PatientSelection[] }
   | { type: "SET_VOUCHER"; value: SelectedVoucherInfo | null }
@@ -132,6 +142,11 @@ function reducer(state: State, a: Action): State {
         shiftName: undefined,
         shiftAvailableSlots: undefined,
         shiftTotalSlots: undefined,
+        slotId: null,
+        slotStartTime: undefined,
+        slotEndTime: undefined,
+        slotNumber: undefined,
+        queueOrder: undefined,
         patientSelections: [],
       };
     case "SET_SPECIALTY_AND_DOCTOR":
@@ -196,6 +211,11 @@ function reducer(state: State, a: Action): State {
           (a.start && a.end ? `${a.start} - ${a.end}` : state.shiftLabel),
         shiftAvailableSlots: a.availableSlots,
         shiftTotalSlots: a.totalSlots,
+        slotId: a.slotId !== undefined ? a.slotId : null,
+        slotStartTime: a.slotStartTime !== undefined ? a.slotStartTime : undefined,
+        slotEndTime: a.slotEndTime !== undefined ? a.slotEndTime : undefined,
+        slotNumber: a.slotNumber !== undefined ? a.slotNumber : undefined,
+        queueOrder: a.queueOrder !== undefined ? a.queueOrder : undefined,
         patientSelections: [],
       };
     case "SET_PATIENT_SELECTIONS":

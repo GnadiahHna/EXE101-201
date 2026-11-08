@@ -345,6 +345,19 @@ export default function Step3Patients() {
                     {state.shiftLabel || state.shiftName || "Khám online"}
                   </div>
                 </div>
+                {state.slotStartTime && (
+                  <div>
+                    <div className="booking-info__label">Giờ khám dự kiến</div>
+                    <div className="booking-info__value text-primary fw-bold">
+                      {state.slotStartTime} - {state.slotEndTime || ""}
+                      {state.queueOrder && (
+                        <span className="badge bg-primary-subtle text-primary ms-2" style={{ fontSize: "11px" }}>
+                          Lượt #{state.queueOrder}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <div className="booking-info__label">Hình thức</div>
                   <div className="booking-info__badge">{appointmentTypeLabel}</div>

@@ -297,7 +297,21 @@ async function bookAppointment(user, query = {}, body = {}) {
         );
       }
 
-      const candidateSlots = availableSlots.slice(0, requestedSlotsCount);
+      let candidateSlots = [];
+      if (body.slotId != null || body.appointmentTime != null) {
+        const reqSlotId = body.slotId != null ? Number(body.slotId) : null;
+        const targetIndex = availableSlots.findIndex((s) => (reqSlotId != null && s.id === reqSlotId) || (body.appointmentTime && s.startTime === body.appointmentTime));
+        if (targetIndex !== -1) {
+          if (availableSlots.length - targetIndex >= requestedSlotsCount) {
+            candidateSlots = availableSlots.slice(targetIndex, targetIndex + requestedSlotsCount);
+          } else {
+            candidateSlots = [availableSlots[targetIndex], ...availableSlots.filter((_, idx) => idx !== targetIndex)].slice(0, requestedSlotsCount);
+          }
+        }
+      }
+      if (!candidateSlots.length) {
+        candidateSlots = availableSlots.slice(0, requestedSlotsCount);
+      }
       const candidateIds = candidateSlots.map((s) => s.id);
 
       // Atomic update on single document: verify ALL selected slots are still AVAILABLE

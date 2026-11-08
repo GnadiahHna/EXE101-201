@@ -17,6 +17,7 @@ type ShiftOption = {
   label: string;
   availableSlots: number;
   totalSlots: number;
+  slots: DoctorShiftSlot[];
 };
 
 type CalendarCell = {
@@ -118,6 +119,7 @@ function normalizeShift(source: DoctorShift): ShiftOption {
     label,
     availableSlots: Math.max(0, availableSlots),
     totalSlots: Math.max(totalSlots, 0),
+    slots,
   };
 }
 
@@ -231,7 +233,14 @@ export default function Step2DateTime() {
     return weeks;
   }, [state.dateISO, visibleMonth]);
 
-  const canNext = Boolean(state.appointmentType && state.dateISO && state.shiftId);
+  const selectedShift = shifts.find((s) => s.id === state.shiftId);
+  const hasSlots = Boolean(selectedShift && selectedShift.slots && selectedShift.slots.length > 0);
+  const canNext = Boolean(
+    state.appointmentType &&
+    state.dateISO &&
+    state.shiftId &&
+    (!hasSlots || state.slotId != null)
+  );
 
   const handleSelectDate = useCallback(
     (cell: CalendarCell) => {
@@ -424,63 +433,210 @@ export default function Step2DateTime() {
                     <div className="appt-time-groups">
                       {(["MORNING", "AFTERNOON", "EVENING"] as const).map((group) => {
                         const items = grouped[group];
+                        const groupTitle =
+                          group === "MORNING"
+                            ? "Ca Buổi Sáng"
+                            : group === "AFTERNOON"
+                            ? "Ca Buổi Chiều"
+                            : "Ca Buổi Tối";
+
                         if (items.length === 0) {
                           return (
-                            <div className="appt-time-group" key={group}>
-                              <div className="appt-time-group__title">
-                                {group === "MORNING"
-                                  ? "Morning"
-                                  : group === "AFTERNOON"
-                                  ? "Afternoon"
-                                  : "Evening"}
-                              </div>
-                              <div className="appt-time-empty">Không có ca trống.</div>
+                            <div className="appt-time-group mb-3" key={group}>
+                              <div className="appt-time-group__title fw-bold text-dark">{groupTitle}</div>
+                              <div className="appt-time-empty">Không có ca khám trống.</div>
                             </div>
                           );
                         }
                         return (
-                          <div className="appt-time-group" key={group}>
-                            <div className="appt-time-group__title">
-                              {group === "MORNING"
-                                ? "Morning"
-                                : group === "AFTERNOON"
-                                ? "Afternoon"
-                                : "Evening"}
+                          <div className="appt-time-group mb-4" key={group}>
+                            <div className="appt-time-group__title mb-2 fw-bold text-dark fs-6">
+                              {groupTitle}
                             </div>
-                            <div className="appt-time-chip-group">
-                              {items.map((slot) => {
-                                const active = state.shiftId === slot.id;
-                                const disabled = slot.availableSlots <= 0;
+                            <div className="d-flex flex-column gap-3">
+                              {items.map((shift) => {
+                                const hasSubSlots = Array.isArray(shift.slots) && shift.slots.length > 0;
+                                const isShiftSelected = state.shiftId === shift.id;
+
                                 return (
-                                  <button
-                                    key={slot.id}
-                                    className={[
-                                      "slot-chip",
-                                      active ? "active" : "",
-                                      disabled ? "disabled" : "",
-                                    ]
-                                      .filter(Boolean)
-                                      .join(" ")}
-                                    disabled={disabled}
-                                    onClick={() => {
-                                      if (disabled) return;
-                                      dispatch({
-                                        type: "SET_SHIFT",
-                                        id: slot.id,
-                                        name: slot.label,
-                                        start: slot.start !== "--:--" ? slot.start : undefined,
-                                        end: slot.end !== "--:--" ? slot.end : undefined,
-                                        shiftName: slot.name,
-                                        availableSlots: slot.availableSlots,
-                                        totalSlots: slot.totalSlots,
-                                      });
+                                  <div
+                                    key={shift.id}
+                                    className="p-3 rounded-3 border bg-white shadow-sm"
+                                    style={{
+                                      borderColor: isShiftSelected ? "#93c5fd" : "#e5e7eb",
+                                      backgroundColor: isShiftSelected ? "#f8faff" : "#ffffff",
+                                      transition: "all 0.2s ease",
                                     }}
                                   >
-                                    <div>{slot.label}</div>
-                                    <small>
-                                      {slot.availableSlots}/{slot.totalSlots} chỗ trống
-                                    </small>
-                                  </button>
+                                    <div className="d-flex flex-wrap justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                                      <div className="d-flex align-items-center gap-2">
+                                        <span className="fw-bold fs-6 text-dark">
+                                          Thời gian ca: {shift.start} - {shift.end}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <span
+                                          className={`badge px-2 py-1 ${
+                                            shift.availableSlots > 0
+                                              ? "bg-success-subtle text-success border border-success-subtle"
+                                              : "bg-secondary-subtle text-secondary"
+                                          }`}
+                                        >
+                                          {shift.availableSlots > 0
+                                            ? `Còn ${shift.availableSlots}/${shift.totalSlots} chỗ trống`
+                                            : "Hết chỗ"}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="text-muted small mb-2">
+                                      {hasSubSlots
+                                        ? "Bấm chọn khung giờ khám dự kiến (mỗi lượt khám 30 - 45 phút):"
+                                        : "Bấm chọn ca khám:"}
+                                    </div>
+
+                                    {hasSubSlots ? (
+                                      <div className="d-flex flex-wrap gap-2">
+                                        {shift.slots.map((slot) => {
+                                          const isAvailable =
+                                            (slot.status ?? slot.slotStatus ?? "").toUpperCase() ===
+                                            "AVAILABLE";
+                                          const isSelected =
+                                            state.shiftId === shift.id && state.slotId === Number(slot.id);
+                                          const queuePosition = slot.slotNumber ?? 1;
+                                          const bookedBefore = shift.slots.filter(
+                                            (s) =>
+                                              (s.slotNumber ?? 0) < (slot.slotNumber ?? 0) &&
+                                              (s.status ?? s.slotStatus ?? "").toUpperCase() === "BOOKED"
+                                          ).length;
+
+                                          return (
+                                            <button
+                                              key={slot.id}
+                                              type="button"
+                                              disabled={!isAvailable}
+                                              className={[
+                                                "slot-chip",
+                                                isSelected ? "active" : "",
+                                                !isAvailable ? "disabled" : "",
+                                              ]
+                                                .filter(Boolean)
+                                                .join(" ")}
+                                              style={{
+                                                minWidth: "130px",
+                                                textAlign: "center",
+                                                padding: "8px 12px",
+                                                borderRadius: "10px",
+                                              }}
+                                              onClick={() => {
+                                                if (!isAvailable) return;
+                                                dispatch({
+                                                  type: "SET_SHIFT",
+                                                  id: shift.id,
+                                                  name: `${groupTitle} (${shift.start} - ${shift.end})`,
+                                                  start: shift.start,
+                                                  end: shift.end,
+                                                  shiftName: shift.name,
+                                                  availableSlots: shift.availableSlots,
+                                                  totalSlots: shift.totalSlots,
+                                                  slotId: Number(slot.id),
+                                                  slotStartTime: slot.startTime,
+                                                  slotEndTime: slot.endTime,
+                                                  slotNumber: slot.slotNumber,
+                                                  queueOrder: bookedBefore + 1,
+                                                });
+                                              }}
+                                            >
+                                              <div className="fw-bold" style={{ fontSize: "13px" }}>
+                                                {slot.startTime} - {slot.endTime}
+                                              </div>
+                                              <small
+                                                className="d-block mt-1"
+                                                style={{ fontSize: "11px", whiteSpace: "nowrap" }}
+                                              >
+                                                {isAvailable ? (
+                                                  isSelected ? (
+                                                    "✓ Đang chọn"
+                                                  ) : (
+                                                    `Lượt #${queuePosition}`
+                                                  )
+                                                ) : (
+                                                  "✕ Đã có người đặt"
+                                                )}
+                                              </small>
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    ) : (
+                                      <div className="appt-time-chip-group">
+                                        <button
+                                          type="button"
+                                          className={[
+                                            "slot-chip",
+                                            state.shiftId === shift.id ? "active" : "",
+                                            shift.availableSlots <= 0 ? "disabled" : "",
+                                          ]
+                                            .filter(Boolean)
+                                            .join(" ")}
+                                          disabled={shift.availableSlots <= 0}
+                                          onClick={() => {
+                                            dispatch({
+                                              type: "SET_SHIFT",
+                                              id: shift.id,
+                                              name: shift.label,
+                                              start: shift.start,
+                                              end: shift.end,
+                                              shiftName: shift.name,
+                                              availableSlots: shift.availableSlots,
+                                              totalSlots: shift.totalSlots,
+                                            });
+                                          }}
+                                        >
+                                          <div>{shift.label}</div>
+                                          <small>
+                                            {shift.availableSlots}/{shift.totalSlots} chỗ trống
+                                          </small>
+                                        </button>
+                                      </div>
+                                    )}
+
+                                    {/* Khung tóm tắt khi đã chọn slot trong ca này */}
+                                    {isShiftSelected && state.slotStartTime && (
+                                      <div
+                                        className="mt-3 p-2 px-3 rounded-2 d-flex flex-wrap align-items-center justify-content-between gap-2"
+                                        style={{
+                                          backgroundColor: "#eef6ff",
+                                          border: "1px solid #bfdbfe",
+                                          color: "#1e40af",
+                                        }}
+                                      >
+                                        <div className="small">
+                                          <strong>Khung giờ đã chọn:</strong>{" "}
+                                          <span className="fw-bold text-primary">
+                                            {state.slotStartTime} - {state.slotEndTime || ""}
+                                          </span>
+                                          {state.queueOrder && (
+                                            <span className="ms-2">
+                                              • Thứ tự khám: <strong>Lượt #${state.queueOrder}</strong>
+                                              {state.queueOrder > 1 ? (
+                                                <span className="text-secondary">
+                                                  {" "}
+                                                  (Đã có {state.queueOrder - 1} người đặt trước bạn trong ca này)
+                                                </span>
+                                              ) : (
+                                                <span className="text-success">
+                                                  {" "}
+                                                  (Bạn là người khám đầu tiên trong ca)
+                                                </span>
+                                              )}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <span className="badge bg-primary px-2 py-1">Đã xác nhận giờ</span>
+                                      </div>
+                                    )}
+                                  </div>
                                 );
                               })}
                             </div>
