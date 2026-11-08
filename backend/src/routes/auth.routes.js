@@ -10,6 +10,8 @@ router.get('/bootstrap-status', authController.getBootstrapStatus);
 router.post('/register-admin', authController.registerAdmin);
 router.post('/bootstrap-admin', authController.registerAdmin);
 router.post('/change-password', authenticate, authController.changePassword);
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/reset-password', authController.resetPassword);
 router.post('/oauth2/logout', authController.oauth2Logout);
 
 module.exports = router;

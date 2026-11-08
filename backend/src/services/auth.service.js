@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const ApiError = require('../utils/ApiError');
 const { normalizeEmail, normalizePhoneNumber, normalizeGender } = require('../utils/normalizers');
@@ -6,6 +7,7 @@ const { ROLES, AUTH_PROVIDERS, AUDIT_ACTIONS } = require('../constants/enums');
 const { User } = require('../models');
 const { recordAudit } = require('./audit.service');
 const bootstrapAdminService = require('./bootstrapAdmin.service');
+const { sendTemporaryPasswordEmail } = require('./email.service');
 
 const BCRYPT_ROUNDS = 10;
 const OAUTH_PASSWORD_SENTINEL = '{noop}GOOGLE_LOGIN';
@@ -132,6 +134,97 @@ async function changePassword(actor, payload, req) {
   return { message: 'Đổi mật khẩu thành công' };
 }
 
+async function forgotPassword({ email }) {
+  const normalizedEmail = normalizeEmail(email);
+  const user = await User.findOne({ email: normalizedEmail });
+  if (!user) {
+    throw new ApiError(404, 'Không tìm thấy tài khoản với email này');
+  }
+
+  if (!user.isEnable) {
+    throw new ApiError(403, 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên');
+  }
+
+  if (user.password === OAUTH_PASSWORD_SENTINEL) {
+    throw new ApiError(400, 'Tài khoản này đăng nhập bằng mạng xã hội, không hỗ trợ cấp lại mật khẩu');
+  }
+
+  // Generate a secure 8-character random temporary password
+  const temporaryPassword = crypto.randomBytes(4).toString('hex').toUpperCase();
+
+  // Save hashed temporary password and set expiration (15 minutes)
+  user.temporaryPassword = await bcrypt.hash(temporaryPassword, BCRYPT_ROUNDS);
+  user.temporaryPasswordExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+  await user.save();
+
+  // Send temporary password via email service
+  await sendTemporaryPasswordEmail({
+    to: user.email,
+    fullName: user.fullName,
+    temporaryPassword,
+  });
+
+  return {
+    message: 'Email đã được gửi thành công! Vui lòng kiểm tra hộp thư của bạn.',
+    success: true,
+  };
+}
+
+async function resetPassword({ email, temporaryPassword, newPassword, confirmPassword }) {
+  const normalizedEmail = normalizeEmail(email);
+  if (!temporaryPassword) {
+    throw new ApiError(400, 'Vui lòng nhập mật khẩu tạm thời từ email');
+  }
+  if (!newPassword) {
+    throw new ApiError(400, 'Vui lòng nhập mật khẩu mới');
+  }
+  if (confirmPassword !== undefined && newPassword !== confirmPassword) {
+    throw new ApiError(400, 'Mật khẩu xác nhận không khớp');
+  }
+  validatePasswordStrength(newPassword, 'Mật khẩu mới');
+
+  const user = await User.findOne({ email: normalizedEmail });
+  if (!user) {
+    throw new ApiError(404, 'Không tìm thấy tài khoản với email này');
+  }
+
+  if (!user.isEnable) {
+    throw new ApiError(403, 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên');
+  }
+
+  if (!user.temporaryPassword || !user.temporaryPasswordExpiresAt) {
+    throw new ApiError(400, 'Bạn chưa yêu cầu cấp mật khẩu tạm thời hoặc yêu cầu đã hết hạn');
+  }
+
+  if (new Date() > new Date(user.temporaryPasswordExpiresAt)) {
+    throw new ApiError(400, 'Mật khẩu tạm thời đã hết hạn (chỉ có hiệu lực trong 15 phút). Vui lòng yêu cầu lại');
+  }
+
+  const isTempValid = await bcrypt.compare(temporaryPassword, user.temporaryPassword);
+  if (!isTempValid) {
+    throw new ApiError(400, 'Mật khẩu tạm thời không chính xác');
+  }
+
+  // Update new password and clear temporary password
+  user.password = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+  user.temporaryPassword = null;
+  user.temporaryPasswordExpiresAt = null;
+  await user.save();
+
+  await recordAudit({
+    actor: user,
+    action: AUDIT_ACTIONS.USER_PASSWORD_CHANGE,
+    targetType: 'User',
+    targetId: user.id,
+    reason: 'Người dùng đặt lại mật khẩu qua email',
+  });
+
+  return {
+    message: 'Đổi mật khẩu thành công',
+    success: true,
+  };
+}
+
 module.exports = {
   BCRYPT_ROUNDS,
   OAUTH_PASSWORD_SENTINEL,
@@ -141,5 +234,7 @@ module.exports = {
   registerAdmin,
   getBootstrapStatus,
   changePassword,
+  forgotPassword,
+  resetPassword,
 };
 

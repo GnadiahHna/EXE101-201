@@ -43,6 +43,22 @@ const changePassword = async (req, res) => {
   });
 };
 
+const forgotPassword = async (req, res) => {
+  const result = await authService.forgotPassword(req.body);
+  return sendSuccess(res, {
+    message: result.message,
+    data: result,
+  });
+};
+
+const resetPassword = async (req, res) => {
+  const result = await authService.resetPassword(req.body);
+  return sendSuccess(res, {
+    message: result.message,
+    data: result,
+  });
+};
+
 const oauth2Logout = async (_req, res) => {
   return sendSuccess(res, { message: 'Đăng xuất thành công' });
 };
@@ -53,6 +69,8 @@ module.exports = {
   registerAdmin,
   getBootstrapStatus,
   changePassword,
+  forgotPassword,
+  resetPassword,
   oauth2Logout,
 };
 
