@@ -77,7 +77,7 @@ const authorize = (provider) => {
         env.facebookClientId
       )}&redirect_uri=${encodeURIComponent(
         redirectUri
-      )}&scope=email,public_profile`;
+      )}&scope=public_profile`;
       return res.redirect(fbAuthUrl);
     }
 
@@ -222,3 +222,4 @@ module.exports = {
   authorize,
   callback,
 };
+
