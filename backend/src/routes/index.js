@@ -25,6 +25,7 @@ const voucherRoutes = require('./voucher.routes');
 const eventRoutes = require('./event.routes');
 const receptionRoutes = require('./reception.routes');
 const feedbackRoutes = require('./feedback.routes');
+const chatRoutes = require('./chat.routes');
 
 const router = Router();
 
@@ -73,5 +74,6 @@ router.use('/vouchers', voucherRoutes);
 router.use('/events', eventRoutes);
 router.use('/reception', receptionRoutes);
 router.use('/feedbacks', feedbackRoutes);
+router.use('/chat', chatRoutes);
 
 module.exports = router;

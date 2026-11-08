@@ -1,4 +1,4 @@
-const path = require('path');
+﻿const path = require('path');
 require('dotenv').config();
 
 class ConfigService {
@@ -248,6 +248,10 @@ class ConfigService {
     return this.getNumber('FEEDBACK_RATE_PER_HOUR', 10);
   }
 
+  get geminiApiKey() {
+    return this.getString('GEMINI_API_KEY', '');
+  }
+
   /**
    * Export config snapshot object for backwards compatibility.
    */
@@ -297,6 +301,7 @@ class ConfigService {
       paymentJobIntervalMs: this.paymentJobIntervalMs,
       feedbackEditDays: this.feedbackEditDays,
       feedbackRatePerHour: this.feedbackRatePerHour,
+      geminiApiKey: this.geminiApiKey,
     };
   }
 }
