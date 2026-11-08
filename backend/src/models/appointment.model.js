@@ -180,6 +180,7 @@ const appointmentSchema = new mongoose.Schema(
 );
 
 // P0 & Operational Schedule Required Indexes
+appointmentSchema.index({ legacyId: 1 }, { unique: true, sparse: true });
 appointmentSchema.index({ appointmentDate: 1, appointmentTime: 1 });
 appointmentSchema.index({ appointmentDate: 1, status: 1 });
 appointmentSchema.index({ patientId: 1, appointmentDate: 1 });

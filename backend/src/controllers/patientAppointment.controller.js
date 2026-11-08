@@ -44,7 +44,6 @@ const getAppointmentDetail = async (req, res) => {
   });
 };
 
-
 const cancelAppointment = async (req, res) => {
   const result = await patientAppointmentService.cancelPatientAppointment(
     req.user,
@@ -59,10 +58,29 @@ const cancelAppointment = async (req, res) => {
   });
 };
 
+const sendConfirmationEmail = async (req, res) => {
+  const appointmentTarget =
+    req.params.appointmentNo ||
+    req.params.id ||
+    req.body?.appointmentNo ||
+    req.body?.id;
+
+  const result = await patientAppointmentService.sendAppointmentConfirmationEmail(
+    req.user,
+    appointmentTarget,
+  );
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: 'Đã gửi email xác nhận lịch khám thành công',
+    data: result,
+  });
+};
+
 module.exports = {
   createAppointment,
   getMyUpcomingAppointments,
   getMyCompletedAppointments,
   getAppointmentDetail,
   cancelAppointment,
+  sendConfirmationEmail,
 };

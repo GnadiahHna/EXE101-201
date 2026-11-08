@@ -17,6 +17,7 @@ const voucherRedemptionService = require('./voucherRedemption.service');
 const voucherService = require('./voucher.service');
 const { clock } = require('./clock.service');
 const env = require('../config/env');
+const emailService = require('./email.service');
 
 const getTodayString = () => {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -1080,6 +1081,60 @@ async function cancelPatientAppointment(user, appointmentId, body = {}, req = nu
   return serializePatientAppointment(updatedAppointment, doctorMap, specialtyMap);
 }
 
+
+/**
+ * Send email confirmation with deposit receipt for booked appointment
+ */
+async function sendAppointmentConfirmationEmail(user, appointmentNoOrId) {
+  if (!user || user.userType !== ROLES.PATIENT) {
+    throw new ApiError(403, 'Chỉ bệnh nhân mới có quyền yêu cầu gửi email xác nhận');
+  }
+
+  const query = { patientId: user.id };
+  const strVal = String(appointmentNoOrId).trim();
+  if (/^\d+$/.test(strVal)) {
+    query.$or = [{ id: Number(strVal) }, { appointmentNo: strVal }];
+  } else {
+    query.appointmentNo = strVal;
+  }
+
+  const appointment = await Appointment.findOne(query).lean();
+  if (!appointment) {
+    throw new ApiError(404, 'Không tìm thấy thông tin lịch hẹn');
+  }
+
+  const [doctor, specialty, patientUser] = await Promise.all([
+    User.findOne({ id: appointment.doctorId }).select('id fullName').lean(),
+    Specialty.findOne({ id: appointment.specialtyId }).select('id name').lean(),
+    User.findOne({ id: user.id }).select('id fullName email').lean(),
+  ]);
+
+  const targetEmail = user.email || patientUser?.email;
+  const patientName = user.fullName || patientUser?.fullName || 'Quý khách';
+  const doctorName = doctor?.fullName || appointment.doctorName;
+  const specialtyName = specialty?.name || appointment.specialtyName;
+  const patientsList =
+    Array.isArray(appointment.patients) && appointment.patients.length > 0
+      ? appointment.patients.map((p) => p.fullName).join(', ')
+      : patientName;
+
+  const emailResult = await emailService.sendAppointmentConfirmationEmail({
+    to: targetEmail,
+    patientName,
+    appointment,
+    doctorName,
+    specialtyName,
+    patientsList,
+  });
+
+  return {
+    success: true,
+    email: targetEmail,
+    appointmentNo: appointment.appointmentNo,
+    emailResult,
+  };
+}
+
 module.exports = {
   bookAppointment,
   reconcileOrphanSlots,
@@ -1090,5 +1145,7 @@ module.exports = {
   serializePatientAppointment,
   cancelPatientAppointment,
   getAppointmentStartDateTime,
+  sendAppointmentConfirmationEmail,
 };
+
 

@@ -12,6 +12,20 @@ router.post(
   patientAppointmentController.createAppointment,
 );
 
+router.post(
+  '/send-confirmation',
+  authenticate,
+  authorize(ROLES.PATIENT),
+  patientAppointmentController.sendConfirmationEmail,
+);
+
+router.post(
+  '/:appointmentNo/send-confirmation',
+  authenticate,
+  authorize(ROLES.PATIENT),
+  patientAppointmentController.sendConfirmationEmail,
+);
+
 router.get(
   '/my-upcoming',
   authenticate,
@@ -37,7 +51,13 @@ router.put(
   },
 );
 
-const RESERVED_APPOINTMENT_SUBPATHS = new Set(['schedule', 'by-date', 'status', 'by-shift']);
+const RESERVED_APPOINTMENT_SUBPATHS = new Set([
+  'schedule',
+  'by-date',
+  'status',
+  'by-shift',
+  'send-confirmation',
+]);
 
 router.get(
   '/:id',

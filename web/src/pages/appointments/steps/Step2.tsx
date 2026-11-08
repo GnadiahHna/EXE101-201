@@ -111,7 +111,7 @@ function normalizeShift(source: DoctorShift): ShiftOption {
       : Math.min(availableSlotsFallback, totalSlots);
 
   return {
-    id: source.id,
+    id: Number(source.id),
     name,
     start,
     end,
