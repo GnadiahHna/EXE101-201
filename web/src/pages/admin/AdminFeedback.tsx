@@ -256,7 +256,7 @@ export default function AdminFeedback() {
           </p>
         </Col>
         <Col className="text-end">
-          <Button variant="outline-primary" onClick={loadFeedbacks} disabled={loading}>
+          <Button variant="outline-primary" onClick={() => void loadFeedbacks(true)} disabled={loading}>
             {loading ? "Đang làm mới..." : "Làm mới danh sách"}
           </Button>
         </Col>
