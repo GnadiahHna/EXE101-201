@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const cors = require('cors');
 const env = require('./config/env');
 const routes = require('./routes');
@@ -12,7 +12,7 @@ const app = express();
 // `credentials: true` is required because Frontend OAuth2/logout uses `credentials: 'include'`.
 const isAllowedDevOrigin = (origin) => {
   if (!origin) return true;
-  if (env.corsOrigins.includes(origin)) return true;
+  if (env.corsOrigins.includes('*') || env.corsOrigins.includes(origin)) return true;
   if (!env.isProduction) {
     try {
       const { hostname } = new URL(origin);
