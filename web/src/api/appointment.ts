@@ -27,6 +27,8 @@ export type Appointment = {
   discountAmount?: number;
   originalAmount?: number;
   finalAmount?: number;
+  cancelReason?: string;
+  cancelledAt?: string;
 };
 
 export type AppointmentQuery = {
@@ -151,6 +153,8 @@ export const normalizeAppointment = (raw: unknown): Appointment => {
     discountAmount: pickNumber(record.discountAmount),
     originalAmount: pickNumber(record.originalAmount),
     finalAmount: pickNumber(record.finalAmount),
+    cancelReason: pickString(record.cancelReason),
+    cancelledAt: pickString(record.cancelledAt),
   };
 };
 
@@ -205,9 +209,10 @@ export async function fetchDetail(id: number): Promise<ActionResponse<Appointmen
   }
 }
 
-export async function fetchMyUpcomingAppointments(): Promise<ActionResponse<Appointment[]>> {
+export async function fetchMyUpcomingAppointments(includeCancelled = true): Promise<ActionResponse<Appointment[]>> {
   try {
-    const res = await http.get("/appointments/my-upcoming");
+    const params = includeCancelled ? { includeCancelled: "true" } : undefined;
+    const res = await http.get("/appointments/my-upcoming", { params });
     const payload = extractArray(res.data);
     return { ok: true, data: payload.map(normalizeAppointment) };
   } catch (error: unknown) {
@@ -250,9 +255,9 @@ export async function checkinAppointment(id: number): Promise<ActionResponse> {
   }
 }
 
-export async function cancelAppointment(id: number): Promise<ActionResponse> {
+export async function cancelAppointment(id: number, reason?: string): Promise<ActionResponse> {
   try {
-    await http.put(`/appointments/cancel/${id}`);
+    await http.put(`/appointments/cancel/${id}`, { reason, cancelReason: reason });
     return { ok: true };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to cancel";

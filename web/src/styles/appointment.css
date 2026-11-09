@@ -763,7 +763,7 @@
   background: #d1d9e4;
   border-radius: 4px;
 }
-.patient-card {
+.patient-scroll .patient-card {
   min-width: 260px;
   flex: 0 0 calc(33.333% - 16px);
   border: 1px solid #e6e8ee !important;
@@ -772,7 +772,7 @@
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.25s ease !important;
   cursor: pointer;
 }
-.patient-card:hover {
+.patient-scroll .patient-card:hover {
   box-shadow: 0 0 0 3px rgba(14, 130, 253, 0.12);
 }
 
@@ -888,7 +888,7 @@
   .slot-chip {
     width: 100%;
   }
-  .patient-card {
+  .patient-scroll .patient-card {
     min-width: 220px;
   }
 }

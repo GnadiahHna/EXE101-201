@@ -33,6 +33,8 @@ export type UserVoucher = {
   used: boolean;
   userId?: number | null;
   userFullName?: string | null;
+  userEmail?: string | null;
+  userPhone?: string | null;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

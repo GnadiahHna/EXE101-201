@@ -63,6 +63,11 @@ const claimVoucher = async (req, res) => {
   });
 };
 
+const getAllUserVouchers = async (_req, res) => {
+  const allUserVouchers = await voucherService.getAllUserVouchers();
+  return sendSuccess(res, { data: allUserVouchers });
+};
+
 const getVoucherOwners = async (req, res) => {
   const owners = await voucherService.getVoucherOwners(req.params.voucherId);
   return sendSuccess(res, { data: owners });
@@ -91,6 +96,7 @@ module.exports = {
   deleteVoucher,
   getMyVouchers,
   claimVoucher,
+  getAllUserVouchers,
   getVoucherOwners,
   getUserVouchers,
   useVoucher,

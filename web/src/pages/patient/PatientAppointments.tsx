@@ -7,7 +7,7 @@ import { fetchMyUpcomingAppointments, cancelAppointment, type Appointment } from
 type GroupedAppointments = Record<UiStatus, Appointment[]>;
 type ChipTone = "blue" | "green" | "purple" | "red";
 
-const statusOrder: UiStatus[] = ["PENDING_CONFIRM", "CONFIRMED", "CHECK_IN"];
+const statusOrder: UiStatus[] = ["PENDING_CONFIRM", "CONFIRMED", "CHECK_IN", "CANCELLED"];
 
 const STATUS_META: Partial<
   Record<
@@ -41,6 +41,13 @@ const STATUS_META: Partial<
     tone: "purple",
     badge: "Checked in",
     defaultReason: "Đang chờ khám",
+  },
+  CANCELLED: {
+    title: "Đã hủy",
+    description: "Các lịch hẹn đã được hủy thành công.",
+    tone: "red",
+    badge: "Cancelled",
+    defaultReason: "Khám định kỳ",
   },
 };
 
@@ -253,6 +260,15 @@ export default function PatientAppointments() {
                           >
                             Hủy lịch hẹn
                           </Button>
+                        </div>
+                      )}
+
+                      {status === "CANCELLED" && (
+                        <div className="mt-2 pt-2 border-top d-flex justify-content-between align-items-center small">
+                          <span className="text-danger">
+                            <strong>Lý do hủy:</strong>{" "}
+                            {item.cancelReason || "Bệnh nhân yêu cầu hủy"}
+                          </span>
                         </div>
                       )}
                     </div>

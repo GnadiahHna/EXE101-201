@@ -87,6 +87,8 @@
 }
 
 .patient-card {
+  width: 100%;
+  flex: none;
   background: #ffffff;
   border-radius: 20px;
   border: 1px solid rgba(226, 232, 240, 0.8);

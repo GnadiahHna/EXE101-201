@@ -15,7 +15,7 @@ const createAppointment = async (req, res) => {
 };
 
 const getMyUpcomingAppointments = async (req, res) => {
-  const result = await patientAppointmentService.getMyUpcomingAppointments(req.user);
+  const result = await patientAppointmentService.getMyUpcomingAppointments(req.user, req.query);
   return sendSuccess(res, {
     statusCode: 200,
     message: 'Lấy danh sách lịch hẹn sắp tới thành công',

@@ -62,6 +62,11 @@ export default function RecepAppointment() {
   const [rescheduleDate, setRescheduleDate] = useState<string>(() => toISODateInput(new Date()));
   const [loadingShifts, setLoadingShifts] = useState<boolean>(false);
 
+  // Cancel modal state
+  const [showCancelModal, setShowCancelModal] = useState<boolean>(false);
+  const [cancelAppointmentId, setCancelAppointmentId] = useState<number | null>(null);
+  const [cancelReason, setCancelReason] = useState<string>("Bệnh nhân yêu cầu hủy");
+
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
 
@@ -109,12 +114,28 @@ export default function RecepAppointment() {
     setLoading(false);
   };
 
-  const handleCancel = async (id: number) => {
+  const handleOpenCancelModal = (id: number) => {
+    setCancelAppointmentId(id);
+    setCancelReason("Bệnh nhân yêu cầu hủy");
+    setShowCancelModal(true);
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancelAppointmentId) return;
+    if (!cancelReason.trim()) {
+      setError("Vui lòng nhập lý do hủy lịch hẹn.");
+      return;
+    }
     setLoading(true);
-    const res = await cancelAppointment(id);
-    if (res.ok) await loadAppointments(status, date);
-    else setError(res.error || "Cancel failed");
-    setViewItem(null);
+    const res = await cancelAppointment(cancelAppointmentId, cancelReason.trim());
+    if (res.ok) {
+      await loadAppointments(status, date);
+      setShowCancelModal(false);
+      setCancelAppointmentId(null);
+      setViewItem(null);
+    } else {
+      setError(res.error || "Hủy lịch hẹn thất bại.");
+    }
     setLoading(false);
   };
 
@@ -438,7 +459,7 @@ export default function RecepAppointment() {
                 </Button>
                 <Button
                   variant="outline-danger"
-                  onClick={() => handleCancel(viewItem.id)}
+                  onClick={() => handleOpenCancelModal(viewItem.id)}
                 >
                   Cancel
                 </Button>
@@ -461,7 +482,7 @@ export default function RecepAppointment() {
                 </Button>
                 <Button
                   variant="outline-danger"
-                  onClick={() => handleCancel(viewItem.id)}
+                  onClick={() => handleOpenCancelModal(viewItem.id)}
                 >
                   Cancel
                 </Button>
@@ -484,7 +505,7 @@ export default function RecepAppointment() {
                 </Button>
                 <Button
                   variant="outline-danger"
-                  onClick={() => handleCancel(viewItem.id)}
+                  onClick={() => handleOpenCancelModal(viewItem.id)}
                 >
                   Cancel
                 </Button>
@@ -640,6 +661,67 @@ export default function RecepAppointment() {
               Confirm Reschedule
             </Button>
           </Stack>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Modal Hủy Lịch Hẹn cho Lễ tân */}
+      <Modal
+        show={showCancelModal}
+        onHide={() => !loading && setShowCancelModal(false)}
+        centered
+      >
+        <Modal.Header closeButton={!loading}>
+          <Modal.Title>Xác nhận hủy lịch hẹn</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="mb-2">
+            Vui lòng nhập lý do hủy lịch hẹn (bắt buộc theo quy định hệ thống):
+          </p>
+          <Form.Group className="mb-3">
+            <Form.Label>Lý do hủy:</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Nhập lý do hủy..."
+              disabled={loading}
+            />
+          </Form.Group>
+          <div className="d-flex flex-wrap gap-2">
+            {[
+              "Bệnh nhân yêu cầu hủy",
+              "Bác sĩ bận lịch đột xuất",
+              "Bệnh nhân không có mặt",
+              "Trùng lịch khám khác",
+            ].map((sug) => (
+              <Button
+                key={sug}
+                variant="outline-secondary"
+                size="sm"
+                onClick={() => setCancelReason(sug)}
+                disabled={loading}
+              >
+                {sug}
+              </Button>
+            ))}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setShowCancelModal(false)}
+            disabled={loading}
+          >
+            Đóng
+          </Button>
+          <Button
+            variant="danger"
+            onClick={handleConfirmCancel}
+            disabled={loading || !cancelReason.trim()}
+          >
+            {loading ? "Đang xử lý..." : "Xác nhận hủy lịch"}
+          </Button>
         </Modal.Footer>
       </Modal>
     </div>

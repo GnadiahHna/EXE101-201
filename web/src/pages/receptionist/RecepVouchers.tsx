@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
   Alert,
@@ -13,6 +13,7 @@ import {
   Table,
 } from "react-bootstrap";
 import {
+  fetchAllUserVouchersForReception,
   fetchUserVouchersForReception,
   searchUsersForReception,
   useVoucherForUserReception,
@@ -44,38 +45,67 @@ export default function RecepVouchers() {
   const [selectedUser, setSelectedUser] = useState<
     { id: number; fullName?: string | null; email?: string | null; phone?: string | null } | null
   >(null);
-  const [vouchers, setVouchers] = useState<UserVoucher[]>([]);
+
+  const [allVouchers, setAllVouchers] = useState<UserVoucher[]>([]);
+  const [userVouchers, setUserVouchers] = useState<UserVoucher[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
   const [usingVoucherId, setUsingVoucherId] = useState<number | null>(null);
 
-  const loadUserVouchers = async (user: { id: number; fullName?: string | null }) => {
+  const loadAllVouchers = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const list = await fetchAllUserVouchersForReception();
+      setAllVouchers(list);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Không thể tải danh sách voucher.";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadAllVouchers();
+  }, []);
+
+  const loadUserVouchers = async (user: { id: number; fullName?: string | null; email?: string | null; phone?: string | null }) => {
     setSelectedUser(user);
     setLoading(true);
     setError("");
     setSuccessMessage("");
     try {
       const list = await fetchUserVouchersForReception(user.id);
-      setVouchers(list);
+      setUserVouchers(list);
       if (list.length === 0) {
         setSuccessMessage(`${user.fullName || `User #${user.id}`} chưa sở hữu voucher nào.`);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Không thể tải voucher của người dùng.";
       setError(message);
-      setVouchers([]);
+      setUserVouchers([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResetSearch = () => {
+    setSelectedUser(null);
+    setSearchResults([]);
+    setSearchTerm("");
+    setError("");
+    setSuccessMessage("");
+    void loadAllVouchers();
   };
 
   const handleSearch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const keyword = searchTerm.trim();
     if (keyword.length === 0) {
-      setError("Vui lòng nhập tên, email hoặc số điện thoại để tìm kiếm.");
+      handleResetSearch();
       return;
     }
     setError("");
@@ -86,12 +116,11 @@ export default function RecepVouchers() {
       setSearchResults(users);
       if (users.length === 1) {
         void loadUserVouchers(users[0]);
+      } else if (users.length === 0) {
+        setSelectedUser(null);
+        setSuccessMessage("Không tìm thấy người dùng phù hợp.");
       } else {
         setSelectedUser(null);
-        setVouchers([]);
-      }
-      if (users.length === 0) {
-        setSuccessMessage("Không tìm thấy người dùng phù hợp.");
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Không thể tìm kiếm người dùng.";
@@ -113,13 +142,18 @@ export default function RecepVouchers() {
     }
     try {
       const updated = await useVoucherForUserReception(userVoucherId, owner.userId);
-      setVouchers((prev) =>
+      setAllVouchers((prev) =>
+        prev.map((item) =>
+          item.id === owner.id ? { ...item, used: updated.used } : item
+        )
+      );
+      setUserVouchers((prev) =>
         prev.map((item) =>
           item.id === owner.id ? { ...item, used: updated.used } : item
         )
       );
       setSuccessMessage(
-        `Đã đánh dấu voucher ${updated.voucherCode} của ${updated.userFullName || "người dùng"} là đã sử dụng.`
+        `Đã đánh dấu voucher ${updated.voucherCode} của ${owner.userFullName || "người dùng"} là đã sử dụng.`
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : "Không thể áp dụng voucher.";
@@ -134,8 +168,13 @@ export default function RecepVouchers() {
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div>
           <h2 className="mb-1">Quản lý voucher</h2>
-          <p className="text-muted mb-0">Tìm kiếm người dùng và xác nhận sử dụng voucher.</p>
+          <p className="text-muted mb-0">Theo dõi tất cả tài khoản sở hữu voucher và xác nhận sử dụng.</p>
         </div>
+        {selectedUser && (
+          <Button variant="outline-secondary" size="sm" onClick={handleResetSearch}>
+            &larr; Xem tất cả voucher
+          </Button>
+        )}
       </div>
 
       <Card body className="mb-3">
@@ -144,13 +183,13 @@ export default function RecepVouchers() {
             <Col xs={12} md={8} lg={9}>
               <InputGroup>
                 <Form.Control
-                  placeholder="Nhập tên, email hoặc số điện thoại người dùng"
+                  placeholder="Nhập tên, email hoặc số điện thoại người dùng để lọc..."
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                 />
               </InputGroup>
             </Col>
-            <Col xs={12} md={4} lg={3} className="d-flex justify-content-end">
+            <Col xs={12} md={4} lg={3} className="d-flex justify-content-end gap-2">
               <Button type="submit" variant="primary" disabled={searching}>
                 {searching ? (
                   <>
@@ -161,6 +200,11 @@ export default function RecepVouchers() {
                   "Tìm kiếm"
                 )}
               </Button>
+              {(searchTerm || selectedUser || searchResults.length > 0) && (
+                <Button variant="outline-secondary" onClick={handleResetSearch}>
+                  Đặt lại
+                </Button>
+              )}
             </Col>
           </Row>
         </Form>
@@ -177,9 +221,9 @@ export default function RecepVouchers() {
         </Alert>
       )}
 
-      {searchResults.length > 0 && (
+      {searchResults.length > 0 && !selectedUser && (
         <Card body className="mb-3">
-          <h5 className="mb-3">Kết quả tìm kiếm</h5>
+          <h5 className="mb-3">Kết quả tìm kiếm người dùng</h5>
           <Table responsive hover className="align-middle mb-0">
             <thead>
               <tr>
@@ -190,42 +234,30 @@ export default function RecepVouchers() {
               </tr>
             </thead>
             <tbody>
-              {searchResults.map((user) => {
-                const isSelected = selectedUser?.id === user.id;
-                return (
-                  <tr key={user.id} className={isSelected ? "table-primary" : undefined}>
-                    <td>{user.fullName || `User #${user.id}`}</td>
-                    <td>{user.email || "—"}</td>
-                    <td>{user.phone || "—"}</td>
-                    <td>
-                      <Button
-                        size="sm"
-                        variant={isSelected ? "success" : "outline-primary"}
-                        onClick={() => void loadUserVouchers(user)}
-                        disabled={loading && isSelected}
-                      >
-                        {loading && isSelected ? (
-                          <>
-                            <Spinner animation="border" size="sm" className="me-1" />
-                            Đang tải...
-                          </>
-                        ) : isSelected ? (
-                          "Đang xem"
-                        ) : (
-                          "Xem voucher"
-                        )}
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
+              {searchResults.map((user) => (
+                <tr key={user.id}>
+                  <td>{user.fullName || `User #${user.id}`}</td>
+                  <td>{user.email || "—"}</td>
+                  <td>{user.phone || "—"}</td>
+                  <td>
+                    <Button
+                      size="sm"
+                      variant="outline-primary"
+                      onClick={() => void loadUserVouchers(user)}
+                    >
+                      Xem voucher
+                    </Button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </Table>
         </Card>
       )}
 
-      {selectedUser && (
-        <Card className="shadow-sm border-0">
+      {/* Hiển thị voucher của user được chọn */}
+      {selectedUser ? (
+        <Card className="mb-3">
           <Card.Header className="d-flex justify-content-between align-items-center">
             <div>
               <h5 className="mb-1">Voucher của {selectedUser.fullName || `User #${selectedUser.id}`}</h5>
@@ -233,7 +265,12 @@ export default function RecepVouchers() {
                 Email: {selectedUser.email || "—"} &middot; SĐT: {selectedUser.phone || "—"}
               </div>
             </div>
-            <Badge bg="info">Tổng: {vouchers.length}</Badge>
+            <div className="d-flex align-items-center gap-2">
+              <Badge bg="info">Tổng: {userVouchers.length}</Badge>
+              <Button variant="outline-secondary" size="sm" onClick={handleResetSearch}>
+                Đóng
+              </Button>
+            </div>
           </Card.Header>
           <Card.Body>
             {loading ? (
@@ -241,8 +278,8 @@ export default function RecepVouchers() {
                 <Spinner animation="border" size="sm" />
                 Đang tải voucher...
               </div>
-            ) : vouchers.length === 0 ? (
-              <div className="text-muted">Không có voucher nào.</div>
+            ) : userVouchers.length === 0 ? (
+              <div className="text-muted">Người dùng chưa có voucher nào.</div>
             ) : (
               <Table responsive hover className="align-middle mb-0">
                 <thead>
@@ -257,7 +294,7 @@ export default function RecepVouchers() {
                   </tr>
                 </thead>
                 <tbody>
-                  {vouchers.map((voucher) => (
+                  {userVouchers.map((voucher) => (
                     <tr key={voucher.id}>
                       <td>
                         <strong>{voucher.voucherCode}</strong>
@@ -295,9 +332,83 @@ export default function RecepVouchers() {
             )}
           </Card.Body>
         </Card>
+      ) : (
+        /* Hiển thị tất cả tài khoản đang có voucher khi mới vào trang */
+        <Card className="mb-3">
+          <Card.Header className="d-flex justify-content-between align-items-center">
+            <h5 className="mb-0">Tất cả tài khoản đang sở hữu voucher</h5>
+            <Badge bg="primary">Tổng cộng: {allVouchers.length} voucher</Badge>
+          </Card.Header>
+          <Card.Body>
+            {loading ? (
+              <div className="d-flex align-items-center gap-2">
+                <Spinner animation="border" size="sm" />
+                Đang tải danh sách voucher...
+              </div>
+            ) : allVouchers.length === 0 ? (
+              <div className="text-muted">Chưa có người dùng nào sở hữu voucher.</div>
+            ) : (
+              <Table responsive hover className="align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>Chủ sở hữu</th>
+                    <th>Liên hệ</th>
+                    <th>Mã voucher</th>
+                    <th>Tên voucher</th>
+                    <th>Loại</th>
+                    <th>Hạn sử dụng</th>
+                    <th>Trạng thái</th>
+                    <th style={{ width: 140 }}>Hành động</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allVouchers.map((voucher) => (
+                    <tr key={voucher.id}>
+                      <td>
+                        <strong>{voucher.userFullName || `User #${voucher.userId || "—"}`}</strong>
+                      </td>
+                      <td className="small text-muted">
+                        <div>{voucher.userPhone || "—"}</div>
+                        <div>{voucher.userEmail || ""}</div>
+                      </td>
+                      <td>
+                        <Badge bg="light" text="dark" className="border font-monospace">
+                          {voucher.voucherCode}
+                        </Badge>
+                      </td>
+                      <td>{voucher.voucherName || "Voucher ưu đãi"}</td>
+                      <td>{VoucherTypeLabel[voucher.type]}</td>
+                      <td>{formatDateTime(voucher.expiryDate)}</td>
+                      <td>
+                        <Badge bg={voucher.used ? "secondary" : "success"}>
+                          {voucher.used ? "Đã dùng" : "Chưa dùng"}
+                        </Badge>
+                      </td>
+                      <td>
+                        <Button
+                          size="sm"
+                          variant="outline-primary"
+                          disabled={voucher.used || usingVoucherId === voucher.id}
+                          onClick={() => handleUseVoucher(voucher.id, voucher)}
+                        >
+                          {usingVoucherId === voucher.id ? (
+                            <>
+                              <Spinner animation="border" size="sm" className="me-1" />
+                              Đang xử lý...
+                            </>
+                          ) : (
+                            "Đánh dấu dùng"
+                          )}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </Card.Body>
+        </Card>
       )}
     </div>
   );
 }
-
-

@@ -41,6 +41,8 @@ const serializeUserVoucher = (uv, voucher, user) => {
     used: Boolean(uvObj.used),
     userId: uvObj.userId,
     userFullName: u.fullName || null,
+    userEmail: u.email || null,
+    userPhone: u.phoneNumber || null,
   };
 };
 
@@ -315,6 +317,27 @@ const getMyVouchers = async (patientUser) => {
   const voucherMap = new Map(vouchers.map((v) => [v.id, v]));
 
   return userVouchers.map((uv) => serializeUserVoucher(uv, voucherMap.get(uv.voucherId), patientUser));
+};
+
+/**
+ * Fetch all users who own any vouchers (Admin & Receptionist).
+ */
+const getAllUserVouchers = async () => {
+  const userVouchers = await UserVoucher.find({}).sort({ createdAt: -1 });
+  if (userVouchers.length === 0) return [];
+
+  const voucherIds = [...new Set(userVouchers.map((uv) => uv.voucherId))];
+  const userIds = [...new Set(userVouchers.map((uv) => uv.userId))];
+
+  const [vouchers, users] = await Promise.all([
+    Voucher.find({ id: { $in: voucherIds } }),
+    User.find({ id: { $in: userIds } }).lean(),
+  ]);
+
+  const voucherMap = new Map(vouchers.map((v) => [v.id, v]));
+  const userMap = new Map(users.map((u) => [u.id, u]));
+
+  return userVouchers.map((uv) => serializeUserVoucher(uv, voucherMap.get(uv.voucherId), userMap.get(uv.userId)));
 };
 
 /**
@@ -639,6 +662,7 @@ module.exports = {
   getMyVouchers,
   issueVoucherToUser,
   claimVoucherForPatient,
+  getAllUserVouchers,
   getVoucherOwners,
   getUserVouchers,
   useVoucher,

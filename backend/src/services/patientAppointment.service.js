@@ -538,6 +538,8 @@ async function bookAppointment(user, query = {}, body = {}) {
     discountAmount: appointment.discountAmount ?? 0,
     originalAmount: appointment.originalAmount ?? totalAmount,
     finalAmount: appointment.finalAmount ?? totalAmount,
+    cancelReason: appointment.cancelReason || null,
+    cancelledAt: appointment.cancelledAt || null,
   };
 }
 
@@ -679,7 +681,7 @@ function serializePatientAppointment(
  * Statuses: PENDING_CONFIRMATION, CONFIRMED, CHECKED_IN.
  * Ordered by appointmentDate ASC, appointmentTime ASC.
  */
-async function getMyUpcomingAppointments(user) {
+async function getMyUpcomingAppointments(user, query = {}) {
   if (!user || user.userType !== ROLES.PATIENT) {
     throw new ApiError(403, 'Chỉ bệnh nhân mới có quyền truy cập');
   }
@@ -690,6 +692,10 @@ async function getMyUpcomingAppointments(user) {
     APPOINTMENT_STATUSES.CONFIRMED,
     APPOINTMENT_STATUSES.CHECKED_IN,
   ];
+
+  if (query && (query.includeCancelled === 'true' || query.includeCancelled === true)) {
+    upcomingStatuses.push(APPOINTMENT_STATUSES.CANCELLED);
+  }
 
   const appointments = await Appointment.find({
     patientId: user.id,
@@ -728,10 +734,9 @@ async function getMyCompletedAppointments(user, query = {}) {
     throw new ApiError(403, 'Chỉ bệnh nhân mới có quyền truy cập');
   }
 
-  const completedStatuses = [APPOINTMENT_STATUSES.COMPLETED];
   const filter = {
     patientId: user.id,
-    status: { $in: completedStatuses },
+    status: APPOINTMENT_STATUSES.COMPLETED,
   };
 
   const { fromDate, toDate, startDate, endDate } = query || {};

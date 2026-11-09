@@ -180,6 +180,8 @@ const normalizeUserVoucher = (raw: unknown): UserVoucher => {
     used: Boolean(record.used),
     userId: pickNumber(record.userId),
     userFullName: pickString(record.userFullName),
+    userEmail: pickString(record.userEmail),
+    userPhone: pickString(record.userPhone),
   };
 };
 
@@ -200,6 +202,11 @@ export async function searchUsersForReception(keyword: string): Promise<UserSear
 
 export async function fetchVoucherOwnersForReception(voucherId: number): Promise<UserVoucher[]> { //fix phần này
   const res = await http.get(`/vouchers/${voucherId}/owners`);
+  return pickArray(res.data).map(normalizeUserVoucher);
+}
+
+export async function fetchAllUserVouchersForReception(): Promise<UserVoucher[]> {
+  const res = await http.get('/vouchers/all-owners');
   return pickArray(res.data).map(normalizeUserVoucher);
 }
 

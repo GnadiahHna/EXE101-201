@@ -41,6 +41,13 @@ router.get(
 );
 
 router.get(
+  '/all-owners',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.RECEPTIONIST),
+  voucherController.getAllUserVouchers,
+);
+
+router.get(
   '/:voucherId/owners',
   authenticate,
   authorize(ROLES.ADMIN, ROLES.RECEPTIONIST),
