@@ -52,11 +52,11 @@ const doctorShiftSchema = new mongoose.Schema(
     },
     slotDurationMinutes: {
       type: Number,
-      default: 45,
+      default: 20,
     },
     bufferMinutes: {
       type: Number,
-      default: 15,
+      default: 0,
     },
     maxPatients: {
       type: Number,

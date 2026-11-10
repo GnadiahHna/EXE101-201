@@ -14,7 +14,7 @@ import { getDoctorImagePathWithFallback } from "../../../utils/doctorImage";
 import { http } from "../../../api/http";
 import { useAuth } from "../../../hooks/useAuth";
 
-const DEPOSIT_AMOUNT = 5000; // 5k VNĐ tiền cọc
+const DEPOSIT_AMOUNT = 20000; // 20k VNĐ tiền cọc
 const CLINIC_BANK_ID = "BIDV"; // BIDV
 const CLINIC_BANK_NAME = "BIDV (Ngân hàng TMCP Đầu tư và Phát triển Việt Nam)";
 const CLINIC_ACCOUNT_NO = "8881528121";
@@ -333,7 +333,7 @@ export default function Step4Review() {
             </svg>
           </div>
           <Badge bg="success" className="px-3 py-2 fs-6 mx-auto mb-2">
-            ĐÃ THANH TOÁN TIỀN CỌC THÀNH CÔNG (5.000 VNĐ)
+            ĐÃ THANH TOÁN TIỀN CỌC THÀNH CÔNG (20.000 VNĐ)
           </Badge>
           <h3 className="fw-bold text-success mt-2 mb-3">
             Đặt lịch thành công vào lúc{" "}
@@ -369,7 +369,7 @@ export default function Step4Review() {
 
               <div className="col-sm-4 text-muted">Tiền cọc giữ chỗ:</div>
               <div className="col-sm-8 text-success fw-bold">
-                5.000 VNĐ (Đã chuyển khoản qua QR)
+                20.000 VNĐ (Đã chuyển khoản qua QR)
               </div>
 
               <div className="col-sm-4 text-muted">Bệnh nhân:</div>
@@ -392,7 +392,7 @@ export default function Step4Review() {
                 <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
               </svg>
               <div>
-                Thông tin lịch hẹn và biên nhận cọc 5.000 VNĐ đã được gửi tự động về hòm thư:{" "}
+                Thông tin lịch hẹn và biên nhận cọc 20.000 VNĐ đã được gửi tự động về hòm thư:{" "}
                 <strong>{currentUser?.email || "email tài khoản của bạn"}</strong>. Vui lòng kiểm tra hộp thư đến (Inbox / Thư rác).
               </div>
             </div>
@@ -592,7 +592,7 @@ export default function Step4Review() {
                   <Spinner animation="border" size="sm" /> Đang tạo lịch hẹn...
                 </span>
               ) : (
-                "Xác nhận đặt lịch & Thanh toán cọc (5k)"
+                "Xác nhận đặt lịch & Thanh toán cọc (20k)"
               )}
             </button>
           </div>
@@ -727,7 +727,7 @@ export default function Step4Review() {
 
                 <div className="alert alert-warning small py-2 mb-0">
                   💡 <strong>Gợi ý:</strong> Khi quét mã QR bằng App ngân hàng, thông tin Số tiền{" "}
-                  <strong>(5.000đ)</strong> và Nội dung chuyển khoản sẽ được tự động điền sẵn.
+                  <strong>(20.000đ)</strong> và Nội dung chuyển khoản sẽ được tự động điền sẵn.
                 </div>
               </Col>
             </Row>

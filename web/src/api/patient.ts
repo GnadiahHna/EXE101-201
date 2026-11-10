@@ -10,6 +10,10 @@ export type PatientInfo = {
   phoneNumber?: string;
   dob?: string;
   relationship?: string;
+  slotId?: number;
+  appointmentTime?: string;
+  slotStartTime?: string;
+  slotEndTime?: string;
 };
 
 export type CreatePatientInfoPayload = {
@@ -46,6 +50,10 @@ export function normalizePatientInfo(raw: unknown): PatientInfo {
     phoneNumber: pickString(record.phoneNumber) ?? pickString(record.phone),
     dob: pickString(record.dob) ?? pickString(record.dateOfBirth),
     relationship: pickString(record.relationship),
+    slotId: typeof record.slotId === "number" ? record.slotId : undefined,
+    appointmentTime: pickString(record.appointmentTime) ?? pickString(record.time),
+    slotStartTime: pickString(record.slotStartTime),
+    slotEndTime: pickString(record.slotEndTime),
   };
 }
 

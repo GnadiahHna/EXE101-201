@@ -245,8 +245,8 @@ export default function DoctorShifts() {
           if (!shift) continue;
           
           for (const item of items) {
-            const slot = getSlotFromTime(item.time);
-            if (!slot) continue; // Skip if time doesn't match any slot
+            const slot = getSlotFromTime(item.time) || (shift.shift as (typeof slotOrder)[number]);
+            if (!slot) continue;
             
             const key = `${slot}-${shift.date}`;
             if (!reorganized[key]) {
@@ -254,11 +254,9 @@ export default function DoctorShifts() {
             }
             reorganized[key].push(item);
           }
+          // Also map directly by shiftId
+          reorganized[shiftId] = items;
         }
-        
-        // Also keep the original mapping for backward compatibility if needed
-        const originalMap: Record<string, AppointmentItem[]> = {};
-        for (const [k, v] of pairs) originalMap[k] = v;
         
         // Use reorganized mapping
         setShiftIdToApps(reorganized);
@@ -330,7 +328,7 @@ export default function DoctorShifts() {
                     const it = grid[slot][h.iso];
                     // Get appointments by slot and date (based on appointmentTime)
                     const appsKey = `${slot}-${h.iso}`;
-                    const apps = shiftIdToApps[appsKey] || [];
+                    const apps = (it ? shiftIdToApps[String(it.id)] : undefined) || shiftIdToApps[appsKey] || [];
                     return (
                       <td key={h.iso} className="cell">
                         {it ? (

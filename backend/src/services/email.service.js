@@ -96,7 +96,7 @@ function buildAppointmentHtml({ patientName, appointment, doctorName, specialtyN
         </div>
         <div class="info-row">
           <span class="info-label">Tiền cọc giữ chỗ:</span>
-          <span class="info-val"><span class="badge-deposit">5.000 VNĐ (Đã thanh toán)</span></span>
+          <span class="info-val"><span class="badge-deposit">20.000 VNĐ (Đã thanh toán)</span></span>
         </div>
         <div class="info-row">
           <span class="info-label">Bệnh nhân:</span>
@@ -176,7 +176,7 @@ async function sendAppointmentConfirmationEmail({
   console.log(`To: ${to}`);
   console.log(`Subject: ${subject}`);
   console.log(`Appointment: #${appointment.appointmentNo} · Doctor: ${doctorName} · Time: ${appointment.appointmentTime} ${appointment.appointmentDate}`);
-  console.log(`Deposit Paid: 5.000 VNĐ -> Account: BIDV 8881528121 (NGUYEN HOANG QUOC HUY)`);
+  console.log(`Deposit Paid: 20.000 VNĐ -> Account: BIDV 8881528121 (NGUYEN HOANG QUOC HUY)`);
   console.log('Status: Email rendered and dispatched successfully (Mock/Dev Mode)');
   console.log('==================================================================\n');
 

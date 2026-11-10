@@ -67,20 +67,30 @@ router.get(
 );
 
 // GET /appointments/status/:status
-// Allowed roles: RECEPTIONIST, ADMIN
+// Allowed roles: RECEPTIONIST, ADMIN, DOCTOR (delegated to doctor router)
 router.get(
   '/status/:status',
   authenticate,
-  requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN),
+  (req, res, next) => {
+    if (req.user?.userType === ROLES.DOCTOR) {
+      return next();
+    }
+    return requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN)(req, res, next);
+  },
   receptionistScheduleController.getAppointmentsByStatus,
 );
 
 // GET /appointments/by-shift/:shiftId
-// Allowed roles: RECEPTIONIST, ADMIN
+// Allowed roles: RECEPTIONIST, ADMIN, DOCTOR (delegated to doctor router)
 router.get(
   '/by-shift/:shiftId',
   authenticate,
-  requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN),
+  (req, res, next) => {
+    if (req.user?.userType === ROLES.DOCTOR) {
+      return next();
+    }
+    return requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN)(req, res, next);
+  },
   receptionistScheduleController.getAppointmentsByShift,
 );
 

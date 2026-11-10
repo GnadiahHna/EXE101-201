@@ -617,10 +617,14 @@ function serializePatientAppointment(
   doctorMap = new Map(),
   specialtyMap = new Map(),
   prescriptions = [],
+  shiftMap = new Map(),
 ) {
   const doctorName = doctorMap.get(appointment.doctorId) || 'N/A';
   const specialtyName = specialtyMap.get(appointment.specialtyId) || 'N/A';
   const primaryPatientName = appointment.patients?.[0]?.fullName || 'N/A';
+
+  const shift = appointment.shiftId ? shiftMap.get(appointment.shiftId) : null;
+  const shiftSlotMap = new Map((shift?.slots || []).map((s) => [s.id, s]));
 
   const serialized = {
     id: appointment.id,
@@ -634,6 +638,7 @@ function serializePatientAppointment(
     specialtyId: appointment.specialtyId,
     specialtyName,
     shiftId: appointment.shiftId,
+    slotIds: Array.isArray(appointment.slotIds) ? appointment.slotIds : [],
     actualStartTime: appointment.actualStartTime || null,
     actualEndTime: appointment.actualEndTime || null,
     reason: appointment.reason || undefined,
@@ -643,14 +648,22 @@ function serializePatientAppointment(
     discountAmount: appointment.discountAmount || undefined,
     originalAmount: appointment.originalAmount || undefined,
     finalAmount: appointment.finalAmount || undefined,
-    patients: (appointment.patients || []).map((p) => ({
-      id: p.id,
-      fullName: p.fullName,
-      gender: p.gender,
-      phoneNumber: p.phoneNumber,
-      dob: p.dob,
-      relationship: p.relationship,
-    })),
+    patients: (appointment.patients || []).map((p, idx) => {
+      const slotId = Array.isArray(appointment.slotIds) ? appointment.slotIds[idx] : null;
+      const matchedSlot = slotId != null ? shiftSlotMap.get(slotId) : null;
+      return {
+        id: p.id,
+        fullName: p.fullName,
+        gender: p.gender,
+        phoneNumber: p.phoneNumber,
+        dob: p.dob,
+        relationship: p.relationship,
+        slotId: slotId ?? undefined,
+        appointmentTime: matchedSlot?.startTime || appointment.appointmentTime,
+        slotStartTime: matchedSlot?.startTime || undefined,
+        slotEndTime: matchedSlot?.endTime || undefined,
+      };
+    }),
     cancelReason: appointment.cancelReason || undefined,
     cancelledAt: appointment.cancelledAt
       ? new Date(appointment.cancelledAt).toISOString()
@@ -710,17 +723,22 @@ async function getMyUpcomingAppointments(user, query = {}) {
 
   const doctorIds = [...new Set(appointments.map((a) => a.doctorId))];
   const specialtyIds = [...new Set(appointments.map((a) => a.specialtyId))];
+  const shiftIds = [...new Set(appointments.map((a) => a.shiftId).filter(Boolean))];
 
-  const [doctors, specialties] = await Promise.all([
+  const [doctors, specialties, shifts] = await Promise.all([
     User.find({ id: { $in: doctorIds } }).select('id fullName').lean(),
     Specialty.find({ id: { $in: specialtyIds } }).select('id name').lean(),
+    shiftIds.length > 0
+      ? DoctorShift.find({ id: { $in: shiftIds } }).select('id slots.id slots.startTime slots.endTime').lean()
+      : [],
   ]);
 
   const doctorMap = new Map(doctors.map((d) => [d.id, d.fullName]));
   const specialtyMap = new Map(specialties.map((s) => [s.id, s.name]));
+  const shiftMap = new Map(shifts.map((s) => [s.id, s]));
 
   return appointments.map((a) =>
-    serializePatientAppointment(a, doctorMap, specialtyMap),
+    serializePatientAppointment(a, doctorMap, specialtyMap, [], shiftMap),
   );
 }
 
@@ -759,17 +777,22 @@ async function getMyCompletedAppointments(user, query = {}) {
 
   const doctorIds = [...new Set(appointments.map((a) => a.doctorId))];
   const specialtyIds = [...new Set(appointments.map((a) => a.specialtyId))];
+  const shiftIds = [...new Set(appointments.map((a) => a.shiftId).filter(Boolean))];
 
-  const [doctors, specialties] = await Promise.all([
+  const [doctors, specialties, shifts] = await Promise.all([
     User.find({ id: { $in: doctorIds } }).select('id fullName').lean(),
     Specialty.find({ id: { $in: specialtyIds } }).select('id name').lean(),
+    shiftIds.length > 0
+      ? DoctorShift.find({ id: { $in: shiftIds } }).select('id slots.id slots.startTime slots.endTime').lean()
+      : [],
   ]);
 
   const doctorMap = new Map(doctors.map((d) => [d.id, d.fullName]));
   const specialtyMap = new Map(specialties.map((s) => [s.id, s.name]));
+  const shiftMap = new Map(shifts.map((s) => [s.id, s]));
 
   return appointments.map((a) =>
-    serializePatientAppointment(a, doctorMap, specialtyMap),
+    serializePatientAppointment(a, doctorMap, specialtyMap, [], shiftMap),
   );
 }
 
@@ -793,20 +816,25 @@ async function getPatientAppointmentDetail(user, appointmentId) {
     throw new ApiError(404, 'Không tìm thấy lịch hẹn');
   }
 
-  const [doctor, specialty, prescriptions] = await Promise.all([
+  const [doctor, specialty, prescriptions, shift] = await Promise.all([
     User.findOne({ id: appointment.doctorId }).select('id fullName').lean(),
     Specialty.findOne({ id: appointment.specialtyId }).select('id name').lean(),
     Prescription.find({ appointmentId: appointment.id }).sort({ id: 1 }).lean(),
+    appointment.shiftId
+      ? DoctorShift.findOne({ id: appointment.shiftId }).select('id slots.id slots.startTime slots.endTime').lean()
+      : null,
   ]);
 
   const doctorMap = new Map([[appointment.doctorId, doctor?.fullName || 'N/A']]);
   const specialtyMap = new Map([[appointment.specialtyId, specialty?.name || 'N/A']]);
+  const shiftMap = shift ? new Map([[shift.id, shift]]) : new Map();
 
   return serializePatientAppointment(
     appointment,
     doctorMap,
     specialtyMap,
     prescriptions,
+    shiftMap,
   );
 }
 

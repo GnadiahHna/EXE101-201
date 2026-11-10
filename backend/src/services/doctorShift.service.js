@@ -16,8 +16,8 @@ const SHIFT_TIMES = {
   AFTERNOON: { startTime: '13:00', endTime: '17:00' },
   EVENING: { startTime: '18:00', endTime: '21:00' },
 };
-const SLOT_DURATION_MINUTES = 45;
-const BUFFER_MINUTES = 15;
+const SLOT_DURATION_MINUTES = 20;
+const BUFFER_MINUTES = 0;
 
 const today = () => {
   const parts = new Intl.DateTimeFormat('en-US', {

@@ -250,6 +250,41 @@ export default function PatientAppointments() {
                         </div>
                       </div>
 
+                      {/* Nếu có từ 2 bệnh nhân trở lên, hiển thị chi tiết từng người với giờ khám riêng */}
+                      {Array.isArray(item.patients) && item.patients.length > 1 ? (
+                        <div className="mt-3 pt-2 border-top">
+                          <div className="text-muted small fw-semibold mb-2">
+                            Danh sách người khám & giờ khám theo slot:
+                          </div>
+                          <div className="d-flex flex-column gap-2">
+                            {item.patients.map((p, pIdx) => {
+                              const pTime = p.slotStartTime
+                                ? `${formatTime(p.slotStartTime)}${p.slotEndTime ? ` - ${formatTime(p.slotEndTime)}` : ""}`
+                                : formatTime(p.appointmentTime || item.appointmentTime);
+                              return (
+                                <div
+                                  key={p.id || pIdx}
+                                  className="d-flex justify-content-between align-items-center p-2 rounded bg-light border"
+                                >
+                                  <div>
+                                    <strong className="text-dark">{p.fullName}</strong>
+                                    {p.relationship && (
+                                      <span className="text-muted small ms-2">({p.relationship})</span>
+                                    )}
+                                  </div>
+                                  <div className="d-flex align-items-center gap-2">
+                                    <span className="text-muted small">Giờ khám:</span>
+                                    <span className="badge bg-primary px-2 py-1 fs-6">
+                                      {pTime}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
+
                       {/* Nút hủy lịch cho trạng thái PENDING_CONFIRM và CONFIRMED */}
                       {(status === "PENDING_CONFIRM" || status === "CONFIRMED") && (
                         <div className="d-flex justify-content-end mt-3 pt-2 border-top">

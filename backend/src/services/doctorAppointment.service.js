@@ -1,4 +1,4 @@
-const { Appointment, DoctorShift, Prescription } = require('../models');
+const { Appointment, DoctorShift, Prescription, User } = require('../models');
 const ApiError = require('../utils/ApiError');
 const { appointmentStateService } = require('./appointmentState.service');
 const { clock } = require('./clock.service');
@@ -6,10 +6,10 @@ const { clock } = require('./clock.service');
 const STATUSES = new Set(['CANCELLED', 'CHECKED_IN', 'COMPLETED', 'CONFIRMED', 'EXPIRED', 'IN_PROGRESS', 'NO_SHOW', 'PENDING_CONFIRMATION', 'PENDING_PAYMENT', 'RESCHEDULED']);
 const idOf = (value) => { const id = Number(value); if (!Number.isSafeInteger(id) || id < 1) throw new ApiError(400, 'Invalid numeric ID'); return id; };
 const validDate = (date) => { if (date === undefined) return; if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`)) || new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) throw new ApiError(400, 'date must be a valid YYYY-MM-DD date'); return date; };
-const serialize = (appointment, doctorName) => ({
+const serialize = (appointment, doctorName, fallbackName) => ({
   id: appointment.id, appointmentNo: appointment.appointmentNo, appointmentDate: appointment.appointmentDate,
   appointmentTime: appointment.appointmentTime, createdAt: appointment.createdAt?.toISOString ? appointment.createdAt.toISOString() : (appointment.createdAt ? new Date(appointment.createdAt).toISOString() : undefined), status: appointment.status,
-  patientName: appointment.patients?.[0]?.fullName || 'N/A', patientId: appointment.patientId, doctorName,
+  patientName: appointment.patients?.[0]?.fullName || fallbackName || appointment.patientName || 'N/A', patientId: appointment.patientId, doctorName,
   doctorId: appointment.doctorId, shiftId: appointment.shiftId, specialtyId: appointment.specialtyId,
   reason: appointment.reason || undefined, type: appointment.type,
 });
@@ -21,12 +21,28 @@ const getMyByStatus = async (doctor, status, date) => {
   const query = { doctorId: doctor.id };
   if (normalized !== 'ALL') query.status = normalized;
   const appointmentDate = validDate(date); if (appointmentDate) query.appointmentDate = appointmentDate;
-  return (await Appointment.find(query).sort({ appointmentDate: 1, appointmentTime: 1 }).lean()).map((a) => serialize(a, doctor.fullName));
+  const appointments = await Appointment.find(query).sort({ appointmentDate: 1, appointmentTime: 1 }).lean();
+  if (!appointments.length) return [];
+  const missingUserIds = appointments.filter((a) => !a.patients?.[0]?.fullName && a.patientId).map((a) => a.patientId);
+  const userMap = new Map();
+  if (missingUserIds.length > 0) {
+    const users = await User.find({ id: { $in: missingUserIds } }).select('id fullName').lean();
+    for (const u of users) userMap.set(u.id, u.fullName);
+  }
+  return appointments.map((a) => serialize(a, doctor.fullName, userMap.get(a.patientId)));
 };
 const getByMyShift = async (doctor, shiftId) => {
   const shift = await DoctorShift.findOne({ id: idOf(shiftId), doctorId: doctor.id }).lean();
   if (!shift) throw new ApiError(404, 'Shift not found');
-  return (await Appointment.find({ doctorId: doctor.id, shiftId: shift.id }).sort({ appointmentTime: 1 }).lean()).map((a) => serialize(a, doctor.fullName));
+  const appointments = await Appointment.find({ doctorId: doctor.id, shiftId: shift.id }).sort({ appointmentTime: 1 }).lean();
+  if (!appointments.length) return [];
+  const missingUserIds = appointments.filter((a) => !a.patients?.[0]?.fullName && a.patientId).map((a) => a.patientId);
+  const userMap = new Map();
+  if (missingUserIds.length > 0) {
+    const users = await User.find({ id: { $in: missingUserIds } }).select('id fullName').lean();
+    for (const u of users) userMap.set(u.id, u.fullName);
+  }
+  return appointments.map((a) => serialize(a, doctor.fullName, userMap.get(a.patientId)));
 };
 const getMyDetail = async (doctor, appointmentId) => {
   const appointment = await getOwned(doctor, appointmentId).lean();

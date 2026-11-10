@@ -21,6 +21,7 @@ export type Appointment = {
   specialtyName?: string;
   reason?: string;
   patients?: PatientInfo[];
+  slotIds?: number[];
   type?: "ONLINE" | "OFFLINE";
   voucherId?: number;
   voucherCode?: string;
@@ -147,6 +148,7 @@ export const normalizeAppointment = (raw: unknown): Appointment => {
     specialtyName,
     reason: pickString(record.reason),
     patients,
+    slotIds: Array.isArray(record.slotIds) ? (record.slotIds as number[]) : undefined,
     type,
     voucherId: pickNumber(record.voucherId),
     voucherCode: pickString(record.voucherCode),

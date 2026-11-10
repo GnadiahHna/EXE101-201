@@ -295,7 +295,10 @@ async function getAppointmentsByShift(actor, shiftId) {
   const numShiftId = Number(shiftId);
   const matchShiftId = Number.isSafeInteger(numShiftId) ? numShiftId : shiftId;
 
-  const appointments = await Appointment.find({ shiftId: matchShiftId })
+  const appointments = await Appointment.find({
+    shiftId: matchShiftId,
+    status: { $ne: 'CANCELLED' },
+  })
     .sort({ appointmentDate: 1, appointmentTime: 1 })
     .lean();
 

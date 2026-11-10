@@ -346,7 +346,9 @@ export default function RecepShift() {
                 </tr>
               )}
               {tableRows.map((row) => {
-                const appointmentsForDoctor = shiftAppointments[row.doctor.shiftId] || [];
+                const appointmentsForDoctor = (shiftAppointments[row.doctor.shiftId] || []).filter(
+                  (appt) => appt.status !== "CANCELLED"
+                );
                 const sortedAppointments = [...appointmentsForDoctor].sort((a, b) => {
                   const timeA = a.appointmentTime || "";
                   const timeB = b.appointmentTime || "";

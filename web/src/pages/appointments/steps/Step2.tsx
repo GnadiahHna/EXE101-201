@@ -491,7 +491,7 @@ export default function Step2DateTime() {
 
                                     <div className="text-muted small mb-2">
                                       {hasSubSlots
-                                        ? "Bấm chọn khung giờ khám dự kiến (mỗi lượt khám 30 - 45 phút):"
+                                        ? "Bấm chọn khung giờ khám dự kiến (mỗi lượt khám 15 - 20 phút):"
                                         : "Bấm chọn ca khám:"}
                                     </div>
 
