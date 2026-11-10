@@ -66,6 +66,7 @@ export default function PatientAppointments() {
   // Check-in QR Modal State
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrAppt, setQrAppt] = useState<Appointment | null>(null);
+  const [selectedPatientForQr, setSelectedPatientForQr] = useState<any | null>(null);
 
   const loadAppointments = useCallback(async () => {
     try {
@@ -261,6 +262,7 @@ export default function PatientAppointments() {
                               style={{ fontSize: "12px", height: "26px" }}
                               onClick={() => {
                                 setQrAppt(item);
+                                setSelectedPatientForQr(null);
                                 setQrModalOpen(true);
                               }}
                             >
@@ -312,6 +314,33 @@ export default function PatientAppointments() {
                                     <span className="badge bg-primary px-2 py-1 fs-6">
                                       {pTime}
                                     </span>
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 py-0 px-2 ms-2"
+                                      style={{ fontSize: "11px", height: "24px" }}
+                                      onClick={() => {
+                                        setQrAppt(item);
+                                        setSelectedPatientForQr(p);
+                                        setQrModalOpen(true);
+                                      }}
+                                    >
+                                      <svg
+                                        width="12"
+                                        height="12"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                      >
+                                        <rect x="3" y="3" width="7" height="7"></rect>
+                                        <rect x="14" y="3" width="7" height="7"></rect>
+                                        <rect x="14" y="14" width="7" height="7"></rect>
+                                        <rect x="3" y="14" width="7" height="7"></rect>
+                                      </svg>
+                                      Mã QR
+                                    </button>
                                   </div>
                                 </div>
                               );
@@ -406,19 +435,55 @@ export default function PatientAppointments() {
       {/* Modal hiển thị mã QR Check-in */}
       <Modal show={qrModalOpen} onHide={() => setQrModalOpen(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title className="fs-5">Mã QR Check-in Lịch Hẹn</Modal.Title>
+          <Modal.Title className="fs-5">
+            {selectedPatientForQr
+              ? `Mã QR Check-in: ${selectedPatientForQr.fullName}`
+              : "Mã QR Check-in Lịch Hẹn"}
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body className="text-center py-4">
-          <div className="mb-3">
+          <div className="mb-3 d-flex flex-wrap justify-content-center gap-2">
             <span className="badge bg-primary-subtle text-primary px-3 py-2 fs-6">
               Mã lịch hẹn: #{qrAppt?.appointmentNo || qrAppt?.id}
             </span>
+            {selectedPatientForQr?.slotStartTime && (
+              <span className="badge bg-success-subtle text-success px-3 py-2 fs-6">
+                Giờ khám: {formatTime(selectedPatientForQr.slotStartTime)}
+                {selectedPatientForQr.slotEndTime ? ` - ${formatTime(selectedPatientForQr.slotEndTime)}` : ""}
+              </span>
+            )}
           </div>
+
+          {/* Nếu cuộc hẹn có nhiều người và đang xem mã chung, cho phép chọn nhanh từng bệnh nhân */}
+          {Array.isArray(qrAppt?.patients) && qrAppt.patients.length > 1 && (
+            <div className="d-flex justify-content-center gap-1 mb-3">
+              <button
+                type="button"
+                className={`btn btn-sm ${!selectedPatientForQr ? "btn-primary" : "btn-outline-secondary"}`}
+                onClick={() => setSelectedPatientForQr(null)}
+              >
+                Tất cả ({qrAppt.patients.length} người)
+              </button>
+              {qrAppt.patients.map((p, idx) => (
+                <button
+                  key={p.id || idx}
+                  type="button"
+                  className={`btn btn-sm ${selectedPatientForQr?.fullName === p.fullName ? "btn-primary" : "btn-outline-secondary"}`}
+                  onClick={() => setSelectedPatientForQr(p)}
+                >
+                  {p.fullName} ({formatTime(p.slotStartTime || p.appointmentTime || qrAppt.appointmentTime)})
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="d-flex justify-content-center my-3">
             <div className="p-2 border rounded shadow-sm bg-white" style={{ display: "inline-block" }}>
               <img
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
-                  `CLINIC_CHECKIN:${qrAppt?.appointmentNo || qrAppt?.id}:${qrAppt?.appointmentDate}`
+                  selectedPatientForQr
+                    ? `CLINIC_CHECKIN:${qrAppt?.appointmentNo || qrAppt?.id}:${qrAppt?.appointmentDate}:${selectedPatientForQr.fullName}:${selectedPatientForQr.slotStartTime || qrAppt?.appointmentTime}`
+                    : `CLINIC_CHECKIN:${qrAppt?.appointmentNo || qrAppt?.id}:${qrAppt?.appointmentDate}`
                 )}`}
                 alt="QR Code Check-in"
                 width="180"
@@ -430,10 +495,24 @@ export default function PatientAppointments() {
           <p className="text-muted small mb-2">
             Vui lòng đưa mã QR này cho lễ tân hoặc quét tại kiosk để check-in nhanh khi đến phòng khám.
           </p>
-          <div className="bg-light p-2 rounded small text-start mx-auto" style={{ maxWidth: "320px" }}>
-            <div><strong>Bệnh nhân:</strong> {qrAppt ? getPatientsLabel(qrAppt) : "—"}</div>
+          <div className="bg-light p-3 rounded small text-start mx-auto" style={{ maxWidth: "340px" }}>
+            <div>
+              <strong>Bệnh nhân:</strong>{" "}
+              {selectedPatientForQr ? selectedPatientForQr.fullName : (qrAppt ? getPatientsLabel(qrAppt) : "—")}
+              {selectedPatientForQr?.relationship && (
+                <span className="text-muted ms-1">({selectedPatientForQr.relationship})</span>
+              )}
+            </div>
             <div><strong>Bác sĩ:</strong> {qrAppt?.doctorName || "—"}</div>
-            <div><strong>Thời gian:</strong> {qrAppt ? `${formatTime(qrAppt.appointmentTime)} - Ngày ${formatDate(qrAppt.appointmentDate)}` : "—"}</div>
+            <div>
+              <strong>Giờ khám:</strong>{" "}
+              <span className="text-primary fw-bold">
+                {selectedPatientForQr
+                  ? `${formatTime(selectedPatientForQr.slotStartTime || selectedPatientForQr.appointmentTime || qrAppt?.appointmentTime)}${selectedPatientForQr.slotEndTime ? ` - ${formatTime(selectedPatientForQr.slotEndTime)}` : ""}`
+                  : formatTime(qrAppt?.appointmentTime)}
+              </span>
+              {" "}— Ngày {formatDate(qrAppt?.appointmentDate)}
+            </div>
           </div>
         </Modal.Body>
         <Modal.Footer>
