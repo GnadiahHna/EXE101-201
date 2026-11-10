@@ -63,6 +63,10 @@ export default function PatientAppointments() {
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
+  // Check-in QR Modal State
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrAppt, setQrAppt] = useState<Appointment | null>(null);
+
   const loadAppointments = useCallback(async () => {
     try {
       setLoading(true);
@@ -248,6 +252,37 @@ export default function PatientAppointments() {
                           <span className="patient-appointment-label">Chuyên khoa</span>
                           <span className="patient-appointment-value">{item.specialtyName || "—"}</span>
                         </div>
+                        <div className="patient-appointment-field">
+                          <span className="patient-appointment-label">Mã QR Check-in</span>
+                          <span className="patient-appointment-value">
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 py-0 px-2"
+                              style={{ fontSize: "12px", height: "26px" }}
+                              onClick={() => {
+                                setQrAppt(item);
+                                setQrModalOpen(true);
+                              }}
+                            >
+                              <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <rect x="3" y="3" width="7" height="7"></rect>
+                                <rect x="14" y="3" width="7" height="7"></rect>
+                                <rect x="14" y="14" width="7" height="7"></rect>
+                                <rect x="3" y="14" width="7" height="7"></rect>
+                              </svg>
+                              Xem mã QR
+                            </button>
+                          </span>
+                        </div>
                       </div>
 
                       {/* Nếu có từ 2 bệnh nhân trở lên, hiển thị chi tiết từng người với giờ khám riêng */}
@@ -364,6 +399,46 @@ export default function PatientAppointments() {
             ) : (
               "Xác nhận hủy"
             )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Modal hiển thị mã QR Check-in */}
+      <Modal show={qrModalOpen} onHide={() => setQrModalOpen(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title className="fs-5">Mã QR Check-in Lịch Hẹn</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="text-center py-4">
+          <div className="mb-3">
+            <span className="badge bg-primary-subtle text-primary px-3 py-2 fs-6">
+              Mã lịch hẹn: #{qrAppt?.appointmentNo || qrAppt?.id}
+            </span>
+          </div>
+          <div className="d-flex justify-content-center my-3">
+            <div className="p-2 border rounded shadow-sm bg-white" style={{ display: "inline-block" }}>
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
+                  `CLINIC_CHECKIN:${qrAppt?.appointmentNo || qrAppt?.id}:${qrAppt?.appointmentDate}`
+                )}`}
+                alt="QR Code Check-in"
+                width="180"
+                height="180"
+                className="img-fluid"
+              />
+            </div>
+          </div>
+          <p className="text-muted small mb-2">
+            Vui lòng đưa mã QR này cho lễ tân hoặc quét tại kiosk để check-in nhanh khi đến phòng khám.
+          </p>
+          <div className="bg-light p-2 rounded small text-start mx-auto" style={{ maxWidth: "320px" }}>
+            <div><strong>Bệnh nhân:</strong> {qrAppt ? getPatientsLabel(qrAppt) : "—"}</div>
+            <div><strong>Bác sĩ:</strong> {qrAppt?.doctorName || "—"}</div>
+            <div><strong>Thời gian:</strong> {qrAppt ? `${formatTime(qrAppt.appointmentTime)} - Ngày ${formatDate(qrAppt.appointmentDate)}` : "—"}</div>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="primary" onClick={() => setQrModalOpen(false)}>
+            Đóng
           </Button>
         </Modal.Footer>
       </Modal>
