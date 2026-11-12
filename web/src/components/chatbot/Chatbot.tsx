@@ -15,7 +15,7 @@ const QUICK_PROMPTS = [
 
 export default function Chatbot() {
   const navigate = useNavigate();
-  const { dispatch } = useAppt();
+  const apptContext = useAppt();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [showTooltip, setShowTooltip] = useState(true);
@@ -53,26 +53,28 @@ export default function Chatbot() {
   }, [messages, isOpen, isMinimized]);
 
   const handleSelectSlot = (slot: SuggestedSlot, specialtyId?: number | null) => {
-    if (specialtyId) {
-      dispatch({ type: 'SET_SPECIALTY', id: specialtyId, name: slot.specialtyName });
+    if (apptContext?.dispatch) {
+      if (specialtyId) {
+        apptContext.dispatch({ type: 'SET_SPECIALTY', id: specialtyId, name: slot.specialtyName });
+      }
+      apptContext.dispatch({
+        type: 'SET_DOCTOR',
+        id: slot.doctorId,
+        fullName: slot.doctorName,
+      });
+      apptContext.dispatch({ type: 'SET_DATE', value: slot.date });
+      apptContext.dispatch({
+        type: 'SET_SHIFT',
+        id: slot.shiftId,
+        slotId: slot.slotId,
+        slotStartTime: slot.startTime,
+        slotEndTime: slot.endTime,
+        slotNumber: slot.slotNumber,
+      });
+      apptContext.dispatch({ type: 'SET_STEP', step: 3 });
     }
-    dispatch({
-      type: 'SET_DOCTOR',
-      id: slot.doctorId,
-      fullName: slot.doctorName,
-    });
-    dispatch({ type: 'SET_DATE', value: slot.date });
-    dispatch({
-      type: 'SET_SHIFT',
-      id: slot.shiftId,
-      slotId: slot.slotId,
-      slotStartTime: slot.startTime,
-      slotEndTime: slot.endTime,
-      slotNumber: slot.slotNumber,
-    });
-    dispatch({ type: 'SET_STEP', step: 3 });
     setIsOpen(false);
-    navigate('/booking');
+    navigate('/appointment');
   };
 
   const sendMessage = async (textToSend: string) => {

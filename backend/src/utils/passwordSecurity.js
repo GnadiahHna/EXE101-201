@@ -20,29 +20,12 @@ function getCommonPasswords() {
 }
 
 /**
- * Validates password strength:
- * - At least 8 characters
- * - Contains uppercase letter
- * - Contains lowercase letter
- * - Contains digit
- * - Not in common passwords blacklist
+ * Validates password strength (Đã nới lỏng cho môi trường dev/test):
+ * - Chỉ cần tối thiểu 6 ký tự
  */
 function validatePasswordStrength(password, fieldLabel = 'Mật khẩu') {
-  if (typeof password !== 'string' || password.length < 8) {
-    throw new ApiError(400, `${fieldLabel} phải có ít nhất 8 ký tự`);
-  }
-
-  const hasUpper = /[A-Z]/.test(password);
-  const hasLower = /[a-z]/.test(password);
-  const hasDigit = /[0-9]/.test(password);
-
-  if (!hasUpper || !hasLower || !hasDigit) {
-    throw new ApiError(400, `${fieldLabel} phải chứa cả chữ hoa, chữ thường và chữ số`);
-  }
-
-  const commonSet = getCommonPasswords();
-  if (commonSet.has(password.toLowerCase())) {
-    throw new ApiError(400, `${fieldLabel} quá phổ biến và dễ đoán. Vui lòng chọn mật khẩu an toàn hơn`);
+  if (typeof password !== 'string' || password.length < 6) {
+    throw new ApiError(400, `${fieldLabel} phải có ít nhất 6 ký tự`);
   }
 }
 

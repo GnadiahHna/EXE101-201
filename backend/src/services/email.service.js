@@ -390,9 +390,43 @@ async function sendEmailVerificationEmail({ to, fullName, verifyUrl }) {
   return { success: true, mode: 'mock' };
 }
 
+/**
+ * Send Generic Custom HTML Email via SMTP (used by Outbox and Notification channels)
+ */
+async function sendGenericEmail({ to, subject, html, text }) {
+  const activeTransporter = getTransporter();
+
+  if (activeTransporter) {
+    try {
+      const from = process.env.SMTP_FROM || env.smtpFrom || '"Nova Clinic" <no-reply@clinicbooking.com>';
+      const info = await activeTransporter.sendMail({
+        from,
+        to,
+        subject: subject || '[Nova Clinic] Thông báo',
+        html: html || (text ? `<p>${escapeHtml(text)}</p>` : ''),
+        text: text || undefined,
+        headers: {
+          ...DEFAULT_ANTI_SPAM_HEADERS,
+          'Message-ID': `<${Date.now()}.${Math.random().toString(36).slice(2)}@clinicbooking.com>`,
+        },
+      });
+      console.log(`[EmailService] Custom notification email sent via SMTP to ${to} (MessageId: ${info.messageId})`);
+      return { success: true, mode: 'smtp', messageId: info.messageId };
+    } catch (err) {
+      console.error(`[EmailService] Failed to send email via SMTP:`, err.message);
+      throw err;
+    }
+  }
+
+  // Fallback Dev / Mock logger
+  console.log(`[EmailService Mock] To: ${to} | Subject: ${subject}`);
+  return { success: true, mode: 'mock' };
+}
+
 module.exports = {
   sendAppointmentConfirmationEmail,
   sendPasswordResetEmail,
   sendEmailVerificationEmail,
+  sendGenericEmail,
   buildAppointmentHtml,
 };

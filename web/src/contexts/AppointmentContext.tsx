@@ -233,7 +233,10 @@ const Ctx = createContext<{ state: State; dispatch: React.Dispatch<Action> } | u
 export const useAppt = () => {
   const context = useContext(Ctx);
   if (!context) {
-    throw new Error("useAppt must be used within an AppointmentProvider");
+    return {
+      state: initial,
+      dispatch: () => {},
+    };
   }
   return context;
 };

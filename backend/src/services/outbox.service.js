@@ -1,15 +1,35 @@
 const { OutboxEvent } = require('../models');
 const { clock } = require('./clock.service');
 const { sanitizePiiAndSecrets } = require('./audit.service');
+const emailService = require('./email.service');
 
 // Channel adapters registry
 const adapters = {
   EMAIL: async (event) => {
-    // Default mock / dev logger for email notification
-    if (process.env.NODE_ENV !== 'test') {
-      console.log(`[Outbox EmailAdapter] Sent notification: ${event.eventType}`, event.payload);
+    // If running in automated tests, avoid real network calls
+    if (process.env.NODE_ENV === 'test') {
+      return { success: true };
     }
-    return { success: true };
+
+    try {
+      const payload = event.payload || {};
+      const to = payload.to || payload.recipientEmail || payload.email;
+      const subject = payload.subject || '[Nova Clinic] Thông báo';
+      const html = payload.html;
+      const text = payload.text || payload.message;
+
+      if (!to) {
+        console.warn(`[Outbox EmailAdapter] Skipped: no recipient in payload for event ${event.eventType}`);
+        return { success: true };
+      }
+
+      await emailService.sendGenericEmail({ to, subject, html, text });
+      return { success: true };
+    } catch (err) {
+      console.error(`[Outbox EmailAdapter] Failed to send real email:`, err.message);
+      // In production/dev, we can return success: false to let outbox retry, or log it
+      return { success: false, error: err.message };
+    }
   },
   WEBSOCKET: async (event) => {
     // Default mock / dev logger for websocket notification
