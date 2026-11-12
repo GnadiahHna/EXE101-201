@@ -287,6 +287,31 @@ class ConfigService {
     return this.getString('GEMINI_API_KEY', '');
   }
 
+  get geminiModels() {
+    const raw = this.getString('GEMINI_MODELS', 'gemini-2.5-flash,gemini-1.5-flash,gemini-1.5-pro');
+    return raw.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+
+  get chatDailyBudget() {
+    return this.getNumber('CHAT_DAILY_BUDGET', 500); // Max daily Gemini calls
+  }
+
+  get clinicName() {
+    return this.getString('CLINIC_NAME', 'Phòng khám Đa khoa Quốc tế Nano Clinic');
+  }
+
+  get clinicAddress() {
+    return this.getString('CLINIC_ADDRESS', '123 Đường Nguyễn Trãi, Quận 1, TP. Hồ Chí Minh');
+  }
+
+  get clinicHotline() {
+    return this.getString('CLINIC_HOTLINE', '1900 6868');
+  }
+
+  get clinicOpenHours() {
+    return this.getString('CLINIC_OPEN_HOURS', 'Thứ 2 - Thứ 7: 07:30 - 20:00, Chủ Nhật: 08:00 - 12:00');
+  }
+
   /**
    * Export config snapshot object for backwards compatibility.
    */
@@ -337,6 +362,12 @@ class ConfigService {
       feedbackEditDays: this.feedbackEditDays,
       feedbackRatePerHour: this.feedbackRatePerHour,
       geminiApiKey: this.geminiApiKey,
+      geminiModels: this.geminiModels,
+      chatDailyBudget: this.chatDailyBudget,
+      clinicName: this.clinicName,
+      clinicAddress: this.clinicAddress,
+      clinicHotline: this.clinicHotline,
+      clinicOpenHours: this.clinicOpenHours,
     };
   }
 }

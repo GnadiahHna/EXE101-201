@@ -17,7 +17,9 @@
     "react": "^19.3.1",
     "react-bootstrap": "^2.10.10",
     "react-dom": "^19.3.1",
-    "react-router-dom": "^7.18.4"
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.18.4",
+    "rehype-sanitize": "^6.0.0"
   },
   "devDependencies": {
     "@types/dompurify": "^3.0.5",

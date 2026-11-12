@@ -1,25 +1,28 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { askChatbot, type ChatMessage } from '../../api/chatbot';
-import { sanitizeChatHtml } from '../../utils/sanitize';
+import Markdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
+import { askChatbot, type ChatMessage, type SuggestedSlot } from '../../api/chatbot';
+import { useAppt } from '../../contexts/AppointmentContext';
 import '../../styles/chatbot.css';
 
 const QUICK_PROMPTS = [
-  { icon: '🩺', text: 'Đặt lịch khám nhanh thế nào?' },
-  { icon: '👨‍⚕️', text: 'Bác sĩ chuyên khoa nổi bật' },
-  { icon: '⏰', text: 'Giờ làm việc của phòng khám' },
+  { icon: '🩺', text: 'Hướng dẫn quy trình đặt lịch khám bệnh' },
+  { icon: '👨‍⚕️', text: 'Phòng khám có những chuyên khoa nào?' },
+  { icon: '⏰', text: 'Thời gian làm việc của phòng khám' },
   { icon: '🎟️', text: 'Ưu đãi và voucher hiện có' },
 ];
 
 export default function Chatbot() {
   const navigate = useNavigate();
+  const { dispatch } = useAppt();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [showTooltip, setShowTooltip] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
-      text: 'Xin chào! Tôi là trợ lý ảo của Nano Clinic. Tôi có thể giúp bạn tìm thông tin về bác sĩ, chuyên khoa, lịch khám và dịch vụ y tế. Bạn cần hỗ trợ gì hôm nay?',
+      text: 'Xin chào! Tôi là trợ lý ảo y tế của Nano Clinic. Tôi có thể hỗ trợ phân luồng triệu chứng ban đầu và cung cấp thông tin lịch khám. Bạn cần hỗ trợ gì hôm nay?',
       isUser: false,
       timestamp: new Date(),
     },
@@ -49,6 +52,29 @@ export default function Chatbot() {
     }
   }, [messages, isOpen, isMinimized]);
 
+  const handleSelectSlot = (slot: SuggestedSlot, specialtyId?: number | null) => {
+    if (specialtyId) {
+      dispatch({ type: 'SET_SPECIALTY', id: specialtyId, name: slot.specialtyName });
+    }
+    dispatch({
+      type: 'SET_DOCTOR',
+      id: slot.doctorId,
+      fullName: slot.doctorName,
+    });
+    dispatch({ type: 'SET_DATE', value: slot.date });
+    dispatch({
+      type: 'SET_SHIFT',
+      id: slot.shiftId,
+      slotId: slot.slotId,
+      slotStartTime: slot.startTime,
+      slotEndTime: slot.endTime,
+      slotNumber: slot.slotNumber,
+    });
+    dispatch({ type: 'SET_STEP', step: 3 });
+    setIsOpen(false);
+    navigate('/booking');
+  };
+
   const sendMessage = async (textToSend: string) => {
     if (!textToSend.trim() || isLoading) return;
 
@@ -64,21 +90,26 @@ export default function Chatbot() {
     setIsLoading(true);
 
     try {
-      const response = await askChatbot(userMessage.text);
-      const isUnavailable = response.includes('Xin lỗi bạn, trợ lý AI hiện');
+      const history = messages.slice(-4).map((m) => ({
+        role: m.isUser ? 'user' : 'model',
+        text: m.text,
+      }));
+
+      const res = await askChatbot(userMessage.text, history);
       const botMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        text: response,
+        text: res.answer,
         isUser: false,
         timestamp: new Date(),
-        isError: isUnavailable,
-        retryText: isUnavailable ? userMessage.text : undefined,
+        urgency: res.urgency,
+        suggestedSlots: res.suggestedSlots,
+        actions: res.actions,
       };
       setMessages((prev) => [...prev, botMessage]);
     } catch {
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        text: 'Xin lỗi, đã có lỗi kết nối tạm thời. Vui lòng bấm thử lại hoặc liên hệ hotline phòng khám.',
+        text: 'Xin lỗi, đã có lỗi kết nối tạm thời. Vui lòng bấm thử lại hoặc gọi hotline phòng khám.',
         isUser: false,
         timestamp: new Date(),
         isError: true,
@@ -101,254 +132,158 @@ export default function Chatbot() {
     }
   };
 
-  const handlePromptClick = (promptText: string) => {
-    sendMessage(promptText);
-  };
-
-  const handleClearChat = () => {
-    setMessages([
-      {
-        id: '1',
-        text: 'Xin chào! Tôi là trợ lý ảo của Nano Clinic. Tôi có thể giúp bạn tìm thông tin về bác sĩ, chuyên khoa, lịch khám và dịch vụ y tế. Bạn cần hỗ trợ gì hôm nay?',
-        isUser: false,
-        timestamp: new Date(),
-      },
-    ]);
-  };
-
-  const handleToggle = () => {
-    if (isOpen) {
-      setIsMinimized(!isMinimized);
-    } else {
-      setIsOpen(true);
-      setIsMinimized(false);
-      setShowTooltip(false);
-    }
-  };
-
-  const handleClose = () => {
-    setIsOpen(false);
-    setIsMinimized(false);
-  };
-
-  const handleExpandFullscreen = () => {
-    setIsOpen(false);
-    navigate('/chatbot');
-  };
-
   return (
     <>
-      {/* Tooltip mời trò chuyện */}
-      {showTooltip && !isOpen && (
-        <div className="chatbot-floating-tooltip">
-          <span>👋 Cần tư vấn y tế hoặc đặt lịch? Nhắn tin với tôi nhé!</span>
+      {/* Floating Trigger Button */}
+      {!isOpen && (
+        <div className="cb-trigger-container">
+          {showTooltip && (
+            <div className="cb-tooltip" role="tooltip">
+              <span className="cb-tooltip-text">Tư vấn triệu chứng & thông tin khám bệnh 🩺</span>
+              <button
+                type="button"
+                className="cb-tooltip-close"
+                onClick={() => setShowTooltip(false)}
+                aria-label="Đóng gợi ý"
+              >
+                ✕
+              </button>
+            </div>
+          )}
           <button
             type="button"
-            className="chatbot-tooltip-close"
-            onClick={(e) => {
-              e.stopPropagation();
+            className="cb-floating-btn"
+            onClick={() => {
+              setIsOpen(true);
+              setIsMinimized(false);
               setShowTooltip(false);
             }}
-            aria-label="Đóng gợi ý"
+            aria-label="Mở khung chat tư vấn y tế"
           >
-            ✕
+            <span className="cb-btn-icon" aria-hidden="true">💬</span>
+            <span className="cb-btn-pulse"></span>
           </button>
         </div>
       )}
 
-      {/* Floating Chat Button */}
-      <button
-        className={`chatbot-button ${isOpen ? 'chatbot-button--hidden' : ''}`}
-        onClick={handleToggle}
-        aria-label="Mở trợ lý ảo AI"
-      >
-        <span className="chatbot-btn-online-badge" />
-        <svg
-          width="26"
-          height="26"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          <path d="M12 7v2" />
-          <path d="M12 13v.01" />
-        </svg>
-      </button>
-
-      {/* Chatbot Modal */}
+      {/* Floating Chat Modal */}
       {isOpen && (
-        <div className={`chatbot-modal ${isMinimized ? 'chatbot-modal--minimized' : ''}`}>
+        <div
+          className={`cb-widget ${isMinimized ? 'cb-widget-minimized' : ''}`}
+          role="dialog"
+          aria-label="Hộp thoại tư vấn y tế Nano Clinic"
+        >
           {/* Header */}
-          <div className="chatbot-header">
-            <div className="chatbot-header__info">
-              <div className="chatbot-header__avatar">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="11" width="18" height="10" rx="2" />
-                  <circle cx="12" cy="5" r="2" />
-                  <path d="M12 7v4" />
-                  <line x1="8" y1="16" x2="8" y2="16" />
-                  <line x1="16" y1="16" x2="16" y2="16" />
-                </svg>
-              </div>
+          <div className="cb-widget-header">
+            <div className="cb-header-left">
+              <span className="cb-header-avatar" aria-hidden="true">🩺</span>
               <div>
-                <div className="chatbot-header__title">Nano Clinic AI</div>
-                <div className="chatbot-header__status">
-                  <span className="status-live-dot" />
-                  Trực tuyến 24/7
-                </div>
+                <h3 className="cb-header-name">Trợ Lý Y Tế AI</h3>
+                <span className="cb-header-status">Phân luồng & Hướng dẫn</span>
               </div>
             </div>
-
-            <div className="chatbot-header__actions">
-              {/* Nút Clear Chat */}
+            <div className="cb-header-actions">
               <button
                 type="button"
-                className="chatbot-header__btn"
-                onClick={handleClearChat}
-                title="Làm mới cuộc trò chuyện"
-                aria-label="Làm mới"
+                className="cb-action-btn"
+                onClick={() => setIsMinimized(!isMinimized)}
+                title={isMinimized ? 'Mở rộng' : 'Thu nhỏ'}
+                aria-label={isMinimized ? 'Mở rộng' : 'Thu nhỏ'}
               >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="1 4 1 10 7 10" />
-                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                </svg>
+                {isMinimized ? '□' : '—'}
               </button>
-
-              {/* Nút Toàn màn hình */}
               <button
                 type="button"
-                className="chatbot-header__btn"
-                onClick={handleExpandFullscreen}
-                title="Mở rộng toàn trang"
-                aria-label="Mở toàn màn hình"
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="15 3 21 3 21 9" />
-                  <polyline points="9 21 3 21 3 15" />
-                  <line x1="21" y1="3" x2="14" y2="10" />
-                  <line x1="3" y1="21" x2="10" y2="14" />
-                </svg>
-              </button>
-
-              {/* Nút Thu nhỏ */}
-              <button
-                type="button"
-                className="chatbot-header__btn"
-                onClick={handleToggle}
-                title={isMinimized ? "Phóng to" : "Thu nhỏ"}
-                aria-label="Thu nhỏ"
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-              </button>
-
-              {/* Nút Đóng */}
-              <button
-                type="button"
-                className="chatbot-header__btn"
-                onClick={handleClose}
+                className="cb-action-btn"
+                onClick={() => setIsOpen(false)}
                 title="Đóng chat"
-                aria-label="Đóng"
+                aria-label="Đóng hộp thoại chat"
               >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                ✕
               </button>
             </div>
           </div>
 
-          {/* Messages Area */}
           {!isMinimized && (
             <>
-              <div className="chatbot-messages">
+              {/* Message History */}
+              <div className="cb-widget-body" role="log" aria-live="polite">
                 {messages.map((message) => (
                   <div
                     key={message.id}
-                    className={`chatbot-message ${message.isUser ? 'chatbot-message--user' : 'chatbot-message--bot'}`}
+                    className={`cb-msg-row ${message.isUser ? 'cb-msg-user' : 'cb-msg-bot'}`}
                   >
                     {!message.isUser && (
-                      <div className="chatbot-bot-avatar-mini" aria-hidden="true">
-                        AI
+                      <div className="cb-avatar" aria-hidden="true">
+                        {message.urgency === 'emergency' ? '🚨' : '🤖'}
                       </div>
                     )}
-                    <div className="chatbot-message-bubble-wrapper">
-                      <div
-                        className={`chatbot-message__content ${message.isError ? 'chatbot-message__content--error' : ''}`}
-                        dangerouslySetInnerHTML={{ __html: sanitizeChatHtml(message.text) }}
-                      />
-                      {message.isError && message.retryText && (
-                        <div className="chatbot-message__error-actions">
-                          <button
-                            type="button"
-                            className="chatbot-retry-btn"
-                            onClick={() => sendMessage(message.retryText!)}
-                            disabled={isLoading}
-                          >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="1 4 1 10 7 10" />
-                              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                            </svg>
-                            Thử lại
-                          </button>
-                          <a
-                            href="tel:19001234"
-                            className="chatbot-hotline-btn"
-                          >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                            </svg>
-                            Hotline
+                    <div className="cb-bubble-wrapper">
+                      {/* Emergency Warning Banner */}
+                      {message.urgency === 'emergency' && (
+                        <div className="alert alert-danger p-2 mb-2 rounded border border-danger small">
+                          <strong className="d-block text-danger">⚠️ TÌNH TRẠNG CẤP CỨU!</strong>
+                          <span>Gọi ngay 115 hoặc đến khoa Cấp cứu gần nhất.</span>
+                          <a href="tel:115" className="btn btn-danger btn-sm text-white d-block mt-1 fw-bold">
+                            Gọi 115 ngay
                           </a>
                         </div>
                       )}
-                      <div className="chatbot-message__time">
-                        {new Date(message.timestamp).toLocaleTimeString('vi-VN', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+
+                      <div className={`cb-bubble ${message.urgency === 'emergency' ? 'border border-danger' : ''}`}>
+                        {message.isUser ? (
+                          message.text
+                        ) : (
+                          <div className="cb-markdown-content">
+                            <Markdown rehypePlugins={[rehypeSanitize]}>{message.text}</Markdown>
+                          </div>
+                        )}
                       </div>
+
+                      {/* Suggested Slots */}
+                      {message.suggestedSlots && message.suggestedSlots.length > 0 && (
+                        <div className="mt-2 p-2 bg-light rounded border">
+                          <div className="small fw-bold text-primary mb-1">📅 Khung giờ khám còn trống:</div>
+                          <div className="d-flex flex-column gap-1">
+                            {message.suggestedSlots.map((slot) => (
+                              <button
+                                key={`${slot.shiftId}-${slot.slotId}`}
+                                type="button"
+                                className="btn btn-outline-primary btn-sm text-start py-1"
+                                onClick={() => handleSelectSlot(slot, message.suggestedSlots?.[0]?.shiftId)}
+                              >
+                                <strong>{slot.date} ({slot.startTime} - {slot.endTime})</strong>
+                                <div className="text-muted small">{slot.doctorName}</div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {message.isError && message.retryText && (
+                        <button
+                          type="button"
+                          className="cb-retry-btn"
+                          onClick={() => sendMessage(message.retryText!)}
+                        >
+                          🔄 Thử lại
+                        </button>
+                      )}
+                      <span className="cb-timestamp">
+                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
                   </div>
                 ))}
 
-                {/* Quick Prompts Chips khi cuộc hội thoại mới bắt đầu */}
-                {messages.length === 1 && !isLoading && (
-                  <div className="chatbot-quick-prompts">
-                    <div className="chatbot-quick-prompts-title">Gợi ý câu hỏi thường gặp:</div>
-                    <div className="chatbot-chips-grid">
-                      {QUICK_PROMPTS.map((p, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          className="chatbot-prompt-chip"
-                          onClick={() => handlePromptClick(p.text)}
-                        >
-                          <span className="chip-icon">{p.icon}</span>
-                          <span>{p.text}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Loading indicator */}
                 {isLoading && (
-                  <div className="chatbot-message chatbot-message--bot">
-                    <div className="chatbot-bot-avatar-mini" aria-hidden="true">
-                      AI
-                    </div>
-                    <div className="chatbot-message__content chatbot-typing-bubble">
-                      <div className="chatbot-typing-dots">
-                        <span />
-                        <span />
-                        <span />
+                  <div className="cb-msg-row cb-msg-bot">
+                    <div className="cb-avatar" aria-hidden="true">🤖</div>
+                    <div className="cb-bubble-wrapper">
+                      <div className="cb-typing-indicator" aria-label="Trợ lý đang phản hồi">
+                        <span></span>
+                        <span></span>
+                        <span></span>
                       </div>
                     </div>
                   </div>
@@ -356,30 +291,48 @@ export default function Chatbot() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Input Area */}
-              <div className="chatbot-input-area">
+              {/* Quick Prompts */}
+              <div className="cb-quick-prompts">
+                {QUICK_PROMPTS.map((prompt, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className="cb-quick-btn"
+                    onClick={() => sendMessage(prompt.text)}
+                    disabled={isLoading}
+                  >
+                    <span>{prompt.icon}</span> {prompt.text}
+                  </button>
+                ))}
+              </div>
+
+              {/* Footer Input */}
+              <div className="cb-widget-footer">
                 <input
                   ref={inputRef}
                   type="text"
-                  className="chatbot-input"
-                  placeholder="Nhập câu hỏi y tế hoặc đặt khám..."
+                  className="cb-input"
+                  placeholder="Nhập triệu chứng hoặc câu hỏi..."
                   value={inputValue}
+                  maxLength={1000}
                   onChange={(e) => setInputValue(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyPress}
                   disabled={isLoading}
+                  aria-label="Nhập câu hỏi"
                 />
                 <button
                   type="button"
-                  className={`chatbot-send-btn ${inputValue.trim() ? 'has-text' : ''}`}
+                  className="cb-send-action-btn"
                   onClick={handleSend}
                   disabled={!inputValue.trim() || isLoading}
-                  aria-label="Gửi tin nhắn"
+                  aria-label="Gửi"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="22" y1="2" x2="11" y2="13" />
-                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                  </svg>
+                  ➤
                 </button>
+              </div>
+
+              <div className="cb-disclaimer-tiny text-center p-1 text-muted bg-white border-top">
+                Thông tin tham khảo, không thay thế chẩn đoán bác sĩ.
               </div>
             </>
           )}

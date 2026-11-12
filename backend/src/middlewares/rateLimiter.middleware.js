@@ -73,11 +73,15 @@ const passwordResetRateLimiter = rateLimit({
 });
 
 /**
- * Chatbot Limiter: max 30 requests per minute per IP / User.
+ * Chatbot Limiter: tiered rate limit (guests stricter than authenticated users).
+ * Guests (IP): max 15 requests / min
+ * Authenticated Users: max 40 requests / min
  */
 const chatRateLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
+  max: (req) => {
+    return req.user?.id ? 40 : 15;
+  },
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   keyGenerator: (req) => {
@@ -86,7 +90,7 @@ const chatRateLimiter = rateLimit({
     }
     return `ip:${req.ip}`;
   },
-  handler: createRateLimitHandler('Bạn đang gửi câu hỏi quá nhanh. Vui lòng đợi trong giây lát.', 'CHAT_RATE_LIMITED'),
+  handler: createRateLimitHandler('Bạn đang gửi câu hỏi quá nhanh. Vui lòng đợi trong giây lát trước khi gửi câu hỏi tiếp theo.', 'CHAT_RATE_LIMITED'),
 });
 
 /**
