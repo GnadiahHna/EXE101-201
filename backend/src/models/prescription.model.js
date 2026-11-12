@@ -25,6 +25,45 @@ const prescriptionSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    // Structured medication details
+    strength: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    dosageForm: {
+      type: String,
+      default: null, // e.g., 'Viên nén', 'Siro', 'Gói'
+      trim: true,
+    },
+    dose: {
+      type: String,
+      default: null, // e.g., '1 viên', '5ml'
+      trim: true,
+    },
+    frequency: {
+      type: String,
+      default: null, // e.g., '2 lần/ngày (sáng, tối)'
+      trim: true,
+    },
+    durationDays: {
+      type: Number,
+      default: null,
+    },
+    route: {
+      type: String,
+      default: 'Uống', // e.g., 'Uống', 'Bôi ngoài da', 'Tiêm'
+      trim: true,
+    },
+    activeIngredient: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    allergyWarningAcknowledged: {
+      type: Boolean,
+      default: false,
+    },
     version: {
       type: Number,
       default: 1,

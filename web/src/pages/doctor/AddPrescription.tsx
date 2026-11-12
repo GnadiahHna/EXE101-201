@@ -83,6 +83,7 @@ export default function AddPrescription() {
   const [errors, setErrors] = useState<Record<string, RowErrors>>({});
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
+  const [allergyWarning, setAllergyWarning] = useState<{ isWarning: boolean; message: string; details: string[] } | null>(null);
   const [loadingPrescriptions, setLoadingPrescriptions] = useState<boolean>(false);
 
   /* ---- Parse dosage from string (e.g., "500 mg" -> {amount: "500", unit: "mg"}) ---- */
@@ -296,13 +297,14 @@ export default function AddPrescription() {
   };
 
   /* ---- Submit form ---- */
-  const handleSubmit = async () => {
+  const handleSubmit = async (overrideConfirmation = false) => {
     if (!appointmentId || !validate()) {
       return;
     }
 
     setLoading(true);
     setError("");
+    setAllergyWarning(null);
 
     try {
       const prescriptions = rows.map((row) => {
@@ -325,11 +327,17 @@ export default function AddPrescription() {
 
       // Use update or create based on edit mode
       const res = isEditMode
-        ? await updatePrescriptions(appointmentId, prescriptions)
-        : await createPrescriptions(appointmentId, prescriptions);
+        ? await updatePrescriptions(appointmentId, prescriptions, overrideConfirmation)
+        : await createPrescriptions(appointmentId, prescriptions, overrideConfirmation);
       
       if (res.ok) {
         navigate(-1); // Go back to previous page
+      } else if (res.isAllergyWarning) {
+        setAllergyWarning({
+          isWarning: true,
+          message: res.error || "Cảnh báo dị ứng thuốc!",
+          details: res.allergyDetails || [],
+        });
       } else {
         setError(res.error || `Failed to ${isEditMode ? "update" : "create"} prescriptions`);
       }
@@ -371,6 +379,31 @@ export default function AddPrescription() {
         )}
 
         {error && <div className="alert alert-danger">{error}</div>}
+
+        {allergyWarning && (
+          <div className="alert alert-warning border border-warning p-3 mb-3">
+            <h5 className="alert-heading text-danger fw-bold">⚠️ CẢNH BÁO NGUY CƠ DỊ ỨNG THUỐC</h5>
+            <p className="mb-2">{allergyWarning.message}</p>
+            {allergyWarning.details.length > 0 && (
+              <ul className="mb-3">
+                {allergyWarning.details.map((item, idx) => (
+                  <li key={idx} className="fw-semibold text-danger">{item}</li>
+                ))}
+              </ul>
+            )}
+            <p className="text-muted small mb-3">
+              Thuốc kê đơn trùng hoặc phản ứng chéo với nhóm dị ứng đã ghi nhận của bệnh nhân. Bác sĩ chỉ tiếp tục nếu đã đánh giá nguy cơ lâm sàng.
+            </p>
+            <div className="d-flex gap-2">
+              <Button variant="danger" onClick={() => handleSubmit(true)} disabled={loading}>
+                Xác nhận ghi đè (Override) & Lưu đơn thuốc
+              </Button>
+              <Button variant="secondary" onClick={() => setAllergyWarning(null)}>
+                Xem lại danh sách thuốc
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Prescription Form */}
         <div className="mb-3">
@@ -534,7 +567,7 @@ export default function AddPrescription() {
           <Button variant="outline-secondary" onClick={handleCancel} disabled={loading}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleSubmit} disabled={loading || loadingPrescriptions}>
+          <Button variant="primary" onClick={() => handleSubmit(false)} disabled={loading || loadingPrescriptions}>
             {loading ? "Saving..." : isEditMode ? "Update Prescriptions" : "Save Prescriptions"}
           </Button>
         </Stack>

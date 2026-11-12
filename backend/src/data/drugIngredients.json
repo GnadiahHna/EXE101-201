@@ -1,0 +1,98 @@
+[
+  {
+    "name": "Amoxicillin",
+    "activeIngredient": "Amoxicillin",
+    "drugClass": "Penicillin",
+    "allergyGroup": "Penicillin"
+  },
+  {
+    "name": "Augmentin",
+    "activeIngredient": "Amoxicillin + Clavulanic acid",
+    "drugClass": "Penicillin",
+    "allergyGroup": "Penicillin"
+  },
+  {
+    "name": "Ampicillin",
+    "activeIngredient": "Ampicillin",
+    "drugClass": "Penicillin",
+    "allergyGroup": "Penicillin"
+  },
+  {
+    "name": "Cephalexin",
+    "activeIngredient": "Cephalexin",
+    "drugClass": "Cephalosporin",
+    "allergyGroup": "Cephalosporin"
+  },
+  {
+    "name": "Cefuroxime",
+    "activeIngredient": "Cefuroxime",
+    "drugClass": "Cephalosporin",
+    "allergyGroup": "Cephalosporin"
+  },
+  {
+    "name": "Cefixime",
+    "activeIngredient": "Cefixime",
+    "drugClass": "Cephalosporin",
+    "allergyGroup": "Cephalosporin"
+  },
+  {
+    "name": "Aspirin",
+    "activeIngredient": "Acetylsalicylic acid",
+    "drugClass": "NSAID",
+    "allergyGroup": "NSAID"
+  },
+  {
+    "name": "Ibuprofen",
+    "activeIngredient": "Ibuprofen",
+    "drugClass": "NSAID",
+    "allergyGroup": "NSAID"
+  },
+  {
+    "name": "Diclofenac",
+    "activeIngredient": "Diclofenac",
+    "drugClass": "NSAID",
+    "allergyGroup": "NSAID"
+  },
+  {
+    "name": "Meloxicam",
+    "activeIngredient": "Meloxicam",
+    "drugClass": "NSAID",
+    "allergyGroup": "NSAID"
+  },
+  {
+    "name": "Paracetamol",
+    "activeIngredient": "Paracetamol",
+    "drugClass": "Analgesic",
+    "allergyGroup": "Paracetamol"
+  },
+  {
+    "name": "Panadol",
+    "activeIngredient": "Paracetamol",
+    "drugClass": "Analgesic",
+    "allergyGroup": "Paracetamol"
+  },
+  {
+    "name": "Efferalgan",
+    "activeIngredient": "Paracetamol",
+    "drugClass": "Analgesic",
+    "allergyGroup": "Paracetamol"
+  },
+  {
+    "name": "Bactrim",
+    "activeIngredient": "Sulfamethoxazole + Trimethoprim",
+    "drugClass": "Sulfonamide",
+    "allergyGroup": "Sulfonamide"
+  },
+  {
+    "name": "Ciprofloxacin",
+    "activeIngredient": "Ciprofloxacin",
+    "drugClass": "Fluoroquinolone",
+    "allergyGroup": "Fluoroquinolone"
+  },
+  {
+    "name": "Levofloxacin",
+    "activeIngredient": "Levofloxacin",
+    "drugClass": "Fluoroquinolone",
+    "allergyGroup": "Fluoroquinolone"
+  }
+]

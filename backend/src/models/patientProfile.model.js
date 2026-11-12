@@ -43,6 +43,27 @@ const patientProfileSchema = new mongoose.Schema(
       default: false,
       index: true,
     },
+    // Medical intake extensions
+    allergies: {
+      type: [String],
+      default: [],
+    },
+    medicalHistory: {
+      type: [String],
+      default: [],
+    },
+    weightKg: {
+      type: Number,
+      default: null,
+    },
+    heightCm: {
+      type: Number,
+      default: null,
+    },
+    consentStored: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

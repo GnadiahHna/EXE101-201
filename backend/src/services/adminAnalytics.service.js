@@ -1008,12 +1008,65 @@ function getMetricCatalog() {
   };
 }
 
+async function getOperationalKpiAnalytics() {
+  const { Waitlist, PaymentTransaction } = require('../models');
+
+  const [totalAppointments, noShowAppointments, waitlistEntries, waitlistBooked, revenueBySpecialtyAgg] = await Promise.all([
+    Appointment.countDocuments({ status: { $in: [APPOINTMENT_STATUSES.COMPLETED, APPOINTMENT_STATUSES.NO_SHOW] } }),
+    Appointment.countDocuments({ status: APPOINTMENT_STATUSES.NO_SHOW }),
+    Waitlist.countDocuments({}),
+    Waitlist.countDocuments({ status: 'BOOKED' }),
+    Appointment.aggregate([
+      { $match: { status: APPOINTMENT_STATUSES.COMPLETED, finalAmount: { $gt: 0 } } },
+      {
+        $group: {
+          _id: '$specialtyId',
+          totalRevenue: { $sum: '$finalAmount' },
+          appointmentCount: { $sum: 1 },
+        },
+      },
+      {
+        $lookup: {
+          from: 'specialties',
+          localField: '_id',
+          foreignField: 'id',
+          as: 'specialty',
+        },
+      },
+      { $unwind: { path: '$specialty', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          specialtyId: '$_id',
+          specialtyName: { $ifNull: ['$specialty.name', 'Chuyên khoa khác'] },
+          totalRevenue: 1,
+          appointmentCount: 1,
+        },
+      },
+      { $sort: { totalRevenue: -1 } },
+    ]),
+  ]);
+
+  const noShowRatePercent = totalAppointments > 0 ? Math.round((noShowAppointments / totalAppointments) * 10000) / 100 : 0;
+  const waitlistFillRatePercent = waitlistEntries > 0 ? Math.round((waitlistBooked / waitlistEntries) * 10000) / 100 : 0;
+
+  return {
+    noShowRatePercent,
+    noShowCount: noShowAppointments,
+    totalFinishedAppointments: totalAppointments,
+    waitlistFillRatePercent,
+    waitlistTotalRequests: waitlistEntries,
+    waitlistBookedCount: waitlistBooked,
+    revenueBySpecialty: revenueBySpecialtyAgg,
+  };
+}
+
 module.exports = {
   ANALYTICS_QUERY_LIMITS,
   METRIC_DEFINITIONS,
   getAdminAnalyticsOverview,
   getUserGrowthAnalytics,
   getTopDoctorsAnalytics,
+  getOperationalKpiAnalytics,
   getMetricCatalog,
 };
 

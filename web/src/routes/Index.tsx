@@ -58,6 +58,7 @@ import Services from '../pages/guest/Services';
 import AboutPage from '../pages/guest/About';
 import SpecialtyDetail from '../pages/guest/SpecialtyDetail';
 import ChatbotPage from '../pages/guest/ChatbotPage';
+import VideoCallPage from '../pages/guest/VideoCallPage';
 
 
 
@@ -66,6 +67,7 @@ export default function AppRoutes() {
   return (
     <Routes>
       {/* Guest/public */}
+      <Route path="/video-call/:code" element={<VideoCallPage />} />
       <Route element={<PublicLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/doctors" element={<Doctors />} />

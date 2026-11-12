@@ -48,5 +48,7 @@ module.exports = {
   Voucher,
   UserVoucher,
   Feedback,
+  Notification: require('./notification.model'),
+  Waitlist: require('./waitlist.model'),
 };
 

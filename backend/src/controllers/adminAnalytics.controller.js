@@ -33,10 +33,19 @@ async function getMetricDefinitions(_req, res) {
   });
 }
 
+async function getOperationalKpis(_req, res) {
+  const data = await adminAnalyticsService.getOperationalKpiAnalytics();
+  return sendSuccess(res, {
+    message: 'Tổng hợp chỉ số vận hành nâng cao thành công',
+    data,
+  });
+}
+
 module.exports = {
   getAnalyticsOverview,
   getUserGrowthAnalytics,
   getTopDoctorsAnalytics,
+  getOperationalKpis,
   getMetricDefinitions,
 };
 

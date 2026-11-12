@@ -17,4 +17,18 @@ router.get('/:appointmentId', getMyDetail);
 router.put('/start/:appointmentId', startAppointment);
 router.put('/complete/:appointmentId', completeAppointment);
 
+// AI Intake Summary endpoint (Phase 6)
+router.post('/:appointmentId/intake-summary', async (req, res, next) => {
+  try {
+    const { getIntakeSummary } = require('../services/intakeSummary.service');
+    const result = await getIntakeSummary(req.user, req.params.appointmentId);
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

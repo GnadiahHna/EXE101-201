@@ -50,6 +50,8 @@ export default function DoctorAppointment() {
   const [viewItem, setViewItem] = useState<Appointment | null>(null);
   const [addedPrescription, setAddedPrescription] = useState<boolean>(false);
   const [prescriptions, setPrescriptions] = useState<PrescriptionType[]>([]);
+  const [loadingSummary, setLoadingSummary] = useState<boolean>(false);
+  const [intakeSummary, setIntakeSummary] = useState<{ summary?: string; bullets?: string[]; verifiedDisclaimer?: string } | null>(null);
 
   // Paging (nếu muốn hiển thị nhiều trang, bạn có thể bật Paging bên dưới)
   const [page, setPage] = useState<number>(1);
@@ -289,6 +291,7 @@ export default function DoctorAppointment() {
                     variant="outline-primary"
                     onClick={async () => {
                       setAddedPrescription(false);
+                      setIntakeSummary(null);
                       setViewItem(a);
                       // Check if appointment already has prescription
                       const presRes = await getPrescriptionsByAppointment(a.id);
@@ -334,6 +337,62 @@ export default function DoctorAppointment() {
                 <AppointmentStatus status={normStatus(viewItem.status)} withBadge={false} />
               </Detail>
               {viewItem.reason && <Detail label="Reason">{viewItem.reason}</Detail>}
+
+              {/* Patient Intake Information Card */}
+              <div className="mt-3 p-3 border rounded bg-light">
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <h6 className="mb-0 fw-bold">Thông tin Tiền Khám (Medical Intake):</h6>
+                  <Button
+                    size="sm"
+                    variant="outline-info"
+                    disabled={loadingSummary}
+                    onClick={async () => {
+                      if (!viewItem) return;
+                      setLoadingSummary(true);
+                      try {
+                        const res = await (await import("../../api/http")).http.post(
+                          `/doctor/appointments/${viewItem.id}/intake-summary`
+                        );
+                        setIntakeSummary(res.data?.data || res.data);
+                      } catch (err: any) {
+                        alert(err.response?.data?.message || "Không thể tạo tóm tắt AI.");
+                      } finally {
+                        setLoadingSummary(false);
+                      }
+                    }}
+                  >
+                    {loadingSummary ? "Đang xử lý..." : "✨ Tóm tắt tiền khám AI"}
+                  </Button>
+                </div>
+
+                {intakeSummary && (
+                  <div className="alert alert-info py-2 px-3 mb-2">
+                    <div className="fw-semibold small text-primary mb-1">
+                      {intakeSummary.verifiedDisclaimer || "Bản nháp do AI, bác sĩ cần xác minh"}
+                    </div>
+                    {intakeSummary.bullets && intakeSummary.bullets.length > 0 ? (
+                      <ul className="mb-0 ps-3 small">
+                        {intakeSummary.bullets.map((b: string, i: number) => (
+                          <li key={i}>{b}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="small">{intakeSummary.summary}</div>
+                    )}
+                  </div>
+                )}
+
+                <div className="small text-secondary">
+                  <div><strong>Triệu chứng:</strong> {(viewItem as any).intake?.symptoms || viewItem.reason || "Chưa ghi nhận"}</div>
+                  <div><strong>Thời gian xuất hiện:</strong> {(viewItem as any).intake?.duration || "—"}</div>
+                  <div><strong>Dị ứng thuốc/thực phẩm:</strong> <span className="text-danger fw-semibold">{(viewItem as any).intake?.allergies || "Không rõ / Chưa ghi nhận"}</span></div>
+                  <div><strong>Tiền sử bệnh lý:</strong> {(viewItem as any).intake?.medicalHistory || "—"}</div>
+                  <div><strong>Thuốc đang dùng:</strong> {(viewItem as any).intake?.currentMedications || "—"}</div>
+                  {((viewItem as any).intake?.heightCm || (viewItem as any).intake?.weightKg) && (
+                    <div><strong>Chỉ số sinh trắc:</strong> Chiều cao: {(viewItem as any).intake?.heightCm || "—"} cm, Cân nặng: {(viewItem as any).intake?.weightKg || "—"} kg</div>
+                  )}
+                </div>
+              </div>
               
               {/* Display prescriptions if any */}
               {prescriptions.length > 0 && (

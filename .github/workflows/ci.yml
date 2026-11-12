@@ -48,7 +48,7 @@ jobs:
         working-directory: backend
 
       - name: Run backend security tests & core suite
-        run: node --test tests/security-validate-config.test.js tests/security-payment-image.test.js tests/security-phase2-auth.test.js tests/security-phase3-idor.test.js tests/security-phase4-reliability.test.js tests/security-phase5-chatbot.test.js tests/p0-foundation.test.js tests/uc-adm-01.test.js
+        run: node --test tests/security-validate-config.test.js tests/security-payment-image.test.js tests/security-phase2-auth.test.js tests/security-phase3-idor.test.js tests/security-phase4-reliability.test.js tests/security-phase5-chatbot.test.js tests/security-phase6-features.test.js tests/p0-foundation.test.js tests/uc-adm-01.test.js
         working-directory: backend
         env:
           NODE_ENV: test

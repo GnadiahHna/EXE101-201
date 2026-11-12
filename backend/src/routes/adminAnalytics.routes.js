@@ -12,6 +12,7 @@ router.get('/', adminAnalyticsController.getAnalyticsOverview);
 router.get('/overview', adminAnalyticsController.getAnalyticsOverview);
 router.get('/user-growth', adminAnalyticsController.getUserGrowthAnalytics);
 router.get('/top-doctors', adminAnalyticsController.getTopDoctorsAnalytics);
+router.get('/operational-kpis', adminAnalyticsController.getOperationalKpis);
 router.get('/metrics', adminAnalyticsController.getMetricDefinitions);
 
 module.exports = router;

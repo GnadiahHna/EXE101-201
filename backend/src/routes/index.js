@@ -76,5 +76,7 @@ router.use('/events', eventRoutes);
 router.use('/reception', receptionRoutes);
 router.use('/feedbacks', feedbackRoutes);
 router.use('/chat', chatRoutes);
+router.use('/notifications', require('./notification.routes'));
+router.use('/waitlist', require('./waitlist.routes'));
 
 module.exports = router;

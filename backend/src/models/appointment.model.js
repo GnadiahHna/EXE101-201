@@ -173,6 +173,45 @@ const appointmentSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+    // --- Phase 6 Fields ---
+    // Reminders tracking
+    remindersSent: {
+      type: [
+        {
+          type: { type: String, required: true }, // 'T-24H' | 'T-2H'
+          sentAt: { type: Date, required: true },
+          channel: { type: String, default: 'email' },
+        },
+      ],
+      default: [],
+    },
+    // No-show risk scoring
+    noShowRisk: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 1,
+    },
+    noShowRiskFactors: {
+      type: [String],
+      default: [],
+    },
+    // Intake (tiền khám)
+    intake: {
+      symptoms: { type: String, default: null },
+      duration: { type: String, default: null },
+      currentMedications: { type: String, default: null },
+      allergies: { type: [String], default: [] },
+      medicalHistory: { type: [String], default: [] },
+      weightKg: { type: Number, default: null },
+      heightCm: { type: Number, default: null },
+      notes: { type: String, default: null },
+      submittedAt: { type: Date, default: null },
+    },
+    intakeSummary: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,

@@ -5,6 +5,7 @@ import '../../styles/header.css';
 import { useAuth } from '../../hooks/useAuth';
 import { useEffect, useState } from 'react';
 import { fetchSpecialties, type Specialty } from '../../api/specialty';
+import NotificationBell from './NotificationBell';
 
 export default function Header(){
   const { user, userType, isAuthenticated, logout } = useAuth();
@@ -85,6 +86,7 @@ export default function Header(){
             </>
           ) : (
             <>
+              <NotificationBell />
               <NavLink to="/appointment" className="btn login">Đặt lịch khám</NavLink>
               <NavDropdown className="btn login login--ghost" title={user?.fullName || 'User'} id="user-dropdown">
                 <NavDropdown.Item as={Link} to="/patient/profile">Xem thông tin</NavDropdown.Item>

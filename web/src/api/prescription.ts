@@ -17,12 +17,22 @@ export type CreatePrescriptionPayload = {
   dosage?: string | null;
   duration?: string | null;
   instructions?: string | null;
+  strength?: string | null;
+  dosageForm?: string | null;
+  dose?: string | null;
+  frequency?: string | null;
+  durationDays?: number | null;
+  route?: string | null;
+  activeIngredient?: string | null;
+  overrideAllergyConfirmation?: boolean;
 };
 
 export type ActionResponse<T = unknown> = {
   ok: boolean;
   data?: T;
   error?: string;
+  isAllergyWarning?: boolean;
+  allergyDetails?: string[];
 };
 
 /** ===== Utilities ===== */
@@ -99,13 +109,26 @@ export async function getPrescriptionsByAppointment(
 /** 🔵 DOCTOR — Tạo nhiều prescriptions cho appointment cùng lúc */
 export async function createPrescriptions(
   appointmentId: number,
-  prescriptions: CreatePrescriptionPayload[]
+  prescriptions: CreatePrescriptionPayload[],
+  overrideAllergyConfirmation = false
 ): Promise<ActionResponse<Prescription[]>> {
   try {
-    const res = await http.post(`/prescriptions/batch-create/${appointmentId}`, prescriptions);
+    const res = await http.post(`/prescriptions/batch-create/${appointmentId}`, {
+      prescriptions,
+      overrideAllergyConfirmation,
+    });
     const payload = extractArray(res.data);
     return { ok: true, data: payload.map(normalizePrescription) };
-  } catch (error: unknown) {
+  } catch (error: any) {
+    const data = error.response?.data;
+    if (data?.code === 'ALLERGY_WARNING') {
+      return {
+        ok: false,
+        error: data.message || 'Cảnh báo dị ứng thuốc với tiền sử bệnh nhân!',
+        isAllergyWarning: true,
+        allergyDetails: data.conflicts || [],
+      };
+    }
     return { ok: false, error: toErrorMessage(error, "Failed to create prescriptions") };
   }
 }
@@ -113,13 +136,26 @@ export async function createPrescriptions(
 /** 🔵 DOCTOR — Cập nhật prescriptions cho appointment (chỉ khi chưa completed) */
 export async function updatePrescriptions(
   appointmentId: number,
-  prescriptions: CreatePrescriptionPayload[]
+  prescriptions: CreatePrescriptionPayload[],
+  overrideAllergyConfirmation = false
 ): Promise<ActionResponse<Prescription[]>> {
   try {
-    const res = await http.put(`/prescriptions/update/${appointmentId}`, prescriptions);
+    const res = await http.put(`/prescriptions/update/${appointmentId}`, {
+      prescriptions,
+      overrideAllergyConfirmation,
+    });
     const payload = extractArray(res.data);
     return { ok: true, data: payload.map(normalizePrescription) };
-  } catch (error: unknown) {
+  } catch (error: any) {
+    const data = error.response?.data;
+    if (data?.code === 'ALLERGY_WARNING') {
+      return {
+        ok: false,
+        error: data.message || 'Cảnh báo dị ứng thuốc với tiền sử bệnh nhân!',
+        isAllergyWarning: true,
+        allergyDetails: data.conflicts || [],
+      };
+    }
     return { ok: false, error: toErrorMessage(error, "Failed to update prescriptions") };
   }
 }
