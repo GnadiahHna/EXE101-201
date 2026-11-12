@@ -76,8 +76,9 @@ export default function UpcomingEvents() {
     if (!canRegister) return;
     fetchRegisteredEventIds()
       .then((registered) => { if (mounted) setRegisteredIds(registered); })
-      .catch((err: unknown) => {
-        if (mounted) setError(err instanceof Error ? err.message : "Không thể tải thông tin đăng ký.");
+      .catch((_err: unknown) => {
+        // Silently ignore 401 when user is not logged in as patient or session expired
+        if (mounted) setRegisteredIds([]);
       });
     return () => { mounted = false; };
   }, [canRegister, user?.id]);
