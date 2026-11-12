@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { askChatbot, type ChatMessage } from '../../api/chatbot';
+import { sanitizeChatHtml } from '../../utils/sanitize';
 import '../../styles/chatbot.css';
 
 const QUICK_PROMPTS = [
@@ -280,7 +281,7 @@ export default function Chatbot() {
                     <div className="chatbot-message-bubble-wrapper">
                       <div
                         className={`chatbot-message__content ${message.isError ? 'chatbot-message__content--error' : ''}`}
-                        dangerouslySetInnerHTML={{ __html: message.text }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeChatHtml(message.text) }}
                       />
                       {message.isError && message.retryText && (
                         <div className="chatbot-message__error-actions">

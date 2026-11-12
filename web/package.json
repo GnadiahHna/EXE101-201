@@ -12,6 +12,7 @@
   "dependencies": {
     "axios": "^1.21.0",
     "bootstrap": "^5.3.8",
+    "dompurify": "^3.4.17",
     "jwt-decode": "^4.0.0",
     "react": "^19.3.1",
     "react-bootstrap": "^2.10.10",
@@ -19,6 +20,7 @@
     "react-router-dom": "^7.18.4"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.0.5",
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

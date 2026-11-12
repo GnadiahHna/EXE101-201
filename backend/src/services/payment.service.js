@@ -42,8 +42,13 @@ function formatVNPayDate(date) {
  * All keys sorted alphabetically A-Z, encoded URL query.
  */
 function buildSignedVNPayUrl(baseUrl, params, secret) {
-  const sortedKeys = Object.keys(params)
-    .filter((k) => params[k] !== undefined && params[k] !== null && String(params[k]).trim() !== '')
+  if (!secret || String(secret).trim() === '') {
+    throw new ApiError(500, 'VNPay secret is not configured', 'VNPAY_SECRET_MISSING');
+  }
+
+  const rawParams = params || {};
+  const sortedKeys = Object.keys(rawParams)
+    .filter((k) => rawParams[k] !== undefined && rawParams[k] !== null && String(rawParams[k]).trim() !== '')
     .sort();
 
   const signParts = [];
@@ -57,8 +62,12 @@ function buildSignedVNPayUrl(baseUrl, params, secret) {
     queryParts.push(`${encodedKey}=${encodedVal}`);
   }
 
+  if (!secret || String(secret).trim() === '') {
+    throw new ApiError(500, 'VNPay secret is not configured', 'VNPAY_SECRET_MISSING');
+  }
+
   const signData = signParts.join('&');
-  const hmac = crypto.createHmac('sha512', secret || '');
+  const hmac = crypto.createHmac('sha512', String(secret).trim());
   const secureHash = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
 
   const sep = baseUrl.includes('?') ? '&' : '?';
@@ -70,6 +79,10 @@ function buildSignedVNPayUrl(baseUrl, params, secret) {
  * Verify VNPay secure hash using timing-safe comparison.
  */
 function verifyVNPayHash(queryParams, secret) {
+  if (!secret || String(secret).trim() === '') {
+    return false;
+  }
+
   const secureHash = queryParams.vnp_SecureHash || queryParams.vnp_securehash;
   if (!secureHash) return false;
 
@@ -89,7 +102,7 @@ function verifyVNPayHash(queryParams, secret) {
     signParts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(filteredParams[key]))}`);
   }
   const signData = signParts.join('&');
-  const hmac = crypto.createHmac('sha512', secret || '');
+  const hmac = crypto.createHmac('sha512', String(secret).trim());
   const calculatedHash = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
 
   try {
@@ -321,6 +334,14 @@ class PaymentService {
         return { RspCode: '97', Message: 'Invalid Checksum' };
       }
       throw new ApiError(400, 'Chữ ký không hợp lệ', 'INVALID_SIGNATURE');
+    }
+
+    // 1b. Verify vnp_TmnCode
+    if (env.vnpTmnCode && queryParams.vnp_TmnCode && queryParams.vnp_TmnCode !== env.vnpTmnCode) {
+      if (isIpn) {
+        return { RspCode: '97', Message: 'Invalid Checksum or TmnCode' };
+      }
+      throw new ApiError(400, 'Mã định danh terminal vnp_TmnCode không khớp', 'INVALID_TMN_CODE');
     }
 
     const txnRef = queryParams.vnp_TxnRef;

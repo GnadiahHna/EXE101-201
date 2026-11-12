@@ -57,8 +57,24 @@ app.use((req, res, next) => {
 app.use(defaultRateLimiter);
 
 // Static uploaded files (mounted at both `/uploads` and `/images/file/uploads` per `web/src/api/image.ts`)
-app.use('/uploads', express.static(env.uploadsDir));
-app.use('/images/file/uploads', express.static(env.uploadsDir));
+// Hardened with nosniff and restrictive CSP to prevent executing uploaded files
+const staticSecurityHeaders = (res) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', "default-src 'none'");
+};
+
+app.use(
+  '/uploads',
+  express.static(env.uploadsDir, {
+    setHeaders: staticSecurityHeaders,
+  })
+);
+app.use(
+  '/images/file/uploads',
+  express.static(env.uploadsDir, {
+    setHeaders: staticSecurityHeaders,
+  })
+);
 
 app.get('/', (_req, res) => {
   res.json({ message: 'Welcome to Clinic Booking API' });

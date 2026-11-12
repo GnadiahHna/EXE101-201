@@ -1,5 +1,9 @@
 ﻿const path = require('path');
+const crypto = require('crypto');
 require('dotenv').config();
+
+// Ephemeral dev/test secret generated per process runtime if not explicitly set
+const ephemeralDevSecret = crypto.randomBytes(32).toString('hex');
 
 class ConfigService {
   constructor(sourceEnv = process.env) {
@@ -66,11 +70,18 @@ class ConfigService {
 
   // --- Security & JWT ---
   get jwtSecret() {
-    const secret = this.getString('JWT_SECRET', 'clinic_booking_dev_secret_key_sdn302');
-    if (this.isProduction && secret.includes('dev_secret')) {
-      console.warn('[ConfigService WARNING] Using default development JWT_SECRET in production!');
+    const val = this.raw['JWT_SECRET'];
+    if (val !== undefined && val !== null && String(val).trim() !== '') {
+      return String(val).trim();
     }
-    return secret;
+    if (this.isProduction) {
+      return '';
+    }
+    if (!this._warnedDevJwt) {
+      console.warn('[ConfigService] JWT_SECRET not configured. Generated ephemeral random secret for this session.');
+      this._warnedDevJwt = true;
+    }
+    return ephemeralDevSecret;
   }
 
   get jwtExpiresIn() {

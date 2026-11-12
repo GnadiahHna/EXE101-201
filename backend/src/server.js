@@ -5,11 +5,15 @@ if (dns.setDefaultResultOrder) {
 
 const app = require('./app');
 const env = require('./config/env');
+const { validateConfig } = require('./config/validateConfig');
 const { connectDB, disconnectDB } = require('./config/db');
 const paymentMaintenanceJob = require('./jobs/paymentMaintenance.job');
 
 const start = async () => {
   try {
+    // Validate configuration before boot
+    validateConfig();
+
     await connectDB();
 
     if (env.paymentJobEnabled && env.nodeEnv !== 'test') {

@@ -1,17 +1,16 @@
 const { Router } = require('express');
-const paymentController = require('../../controllers/payment.controller');
-const { authenticate, requireRoles } = require('../../middlewares/auth.middleware');
-const { ROLES } = require('../../constants/enums');
+const { router: paymentRouter } = require('./payment.routes');
 
 const router = Router();
 
-// Hỗ trợ alias /payments giống /payment
-router.get('/', authenticate, requireRoles(ROLES.PATIENT), paymentController.getMyPayments);
-router.get('/my', authenticate, requireRoles(ROLES.PATIENT), paymentController.getMyPayments);
-router.post('/create', authenticate, requireRoles(ROLES.PATIENT), paymentController.createPayment);
-router.get('/create', authenticate, requireRoles(ROLES.PATIENT), paymentController.createPayment);
-router.get('/vnpay-return', paymentController.vnpayReturn);
-router.get('/vnpay-ipn', paymentController.vnpayIpn);
+// Middleware gắn Deprecation header và forward sang canonical /payment
+router.use((req, res, next) => {
+  res.setHeader('Deprecation', 'true');
+  res.setHeader('Link', '</api/payment>; rel="canonical"');
+  next();
+});
+
+router.use('/', paymentRouter);
 
 module.exports = {
   basePath: '/payments',

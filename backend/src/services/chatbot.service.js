@@ -6,6 +6,16 @@ if (dns.setDefaultResultOrder) {
 const { Specialty, User, Voucher } = require('../models');
 const env = require('../config/env');
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // Danh sách các từ khóa tục tĩu / thô tục cần chặn lập tức
 const OBSCENE_KEYWORDS = [
   'đm', 'dcm', 'đcm', 'vcl', 'cl', 'vl', 'đmm', 'dmm', 'cặc', 'lồn', 'buồi',
@@ -240,9 +250,9 @@ Sau khi thanh toán thành công, hệ thống lập tức xác nhận lịch h�
 
       if (activeDoctors.length > 0) {
         doctorsHtml = '<ul>' + activeDoctors.map((d) => {
-          const specName = specMap.get(d.specialtyId) || 'Chuyên khoa';
-          const deg = d.degree ? ` (${d.degree})` : '';
-          return `<li><b>${d.fullName}</b>${deg} - Chuyên khoa ${specName}</li>`;
+          const specName = escapeHtml(specMap.get(d.specialtyId) || 'Chuyên khoa');
+          const deg = d.degree ? ` (${escapeHtml(d.degree)})` : '';
+          return `<li><b>${escapeHtml(d.fullName)}</b>${deg} - Chuyên khoa ${specName}</li>`;
         }).join('') + '</ul>';
       }
     } catch {}

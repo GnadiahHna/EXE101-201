@@ -1,9 +1,23 @@
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { connectDB, disconnectDB } = require('../config/db');
 const { User, Specialty, RssSource, News, Voucher, Event, syncSequenceFloor } = require('../models');
 const { ROLES, GENDERS, AUTH_PROVIDERS, RSS_SOURCE_STATUSES, VOUCHER_TYPES } = require('../constants/enums');
 
-const DEFAULT_DEV_PASSWORD = process.env.SEED_DEFAULT_PASSWORD || '123456';
+// Check production protection
+const isProduction = (process.env.NODE_ENV || '').trim().toLowerCase() === 'production';
+const allowProdSeed = (process.env.SEED_ALLOW_PROD || '').trim().toLowerCase() === 'true';
+
+if (isProduction && !allowProdSeed) {
+  console.error('[SEED BLOCKED] Cannot run seed.js in production! Set SEED_ALLOW_PROD=true if explicitly intended.');
+  process.exit(1);
+}
+
+// Generate random password if missing
+let DEFAULT_DEV_PASSWORD = process.env.SEED_DEFAULT_PASSWORD;
+if (!DEFAULT_DEV_PASSWORD || String(DEFAULT_DEV_PASSWORD).trim() === '') {
+  DEFAULT_DEV_PASSWORD = isProduction ? crypto.randomBytes(12).toString('hex') : '123456';
+}
 
 const SEED_SPECIALTIES = [
   {
