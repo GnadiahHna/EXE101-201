@@ -86,7 +86,7 @@ async function login({ email, password }, req = null) {
     }
 
     const remaining = MAX_FAILED_ATTEMPTS - user.failedLoginCount;
-    throw new ApiError(401, `Email hoặc mật khẩu không chính xác (Sai lần ${user.failedLoginCount}/${MAX_FAILED_ATTEMPTS}. Còn ${remaining} lần trước khi khóa)`);
+    throw new ApiError(401, `Email hoặc mật khẩu không chính xác (bạn còn ${remaining}/${MAX_FAILED_ATTEMPTS} lần thử)`);
   }
 
   // Login successful -> reset lockout counters
