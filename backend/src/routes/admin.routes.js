@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const adminController = require('../controllers/admin.controller');
 const specialtyController = require('../controllers/specialty.controller');
-const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const { authenticate, authorize, optionalAuthenticate } = require('../middlewares/auth.middleware');
 const { ROLES } = require('../constants/enums');
 
 const router = Router();
@@ -10,7 +10,7 @@ const router = Router();
  * Public read required by Frontend:
  * Guest pages (`Doctors.tsx`, `DoctorsSection.tsx`) call `GET /api/admin/doctors`.
  */
-router.get('/doctors', adminController.listDoctors);
+router.get('/doctors', optionalAuthenticate, adminController.listDoctors);
 
 // All remaining `/api/admin/*` routes require JWT authentication
 router.use(authenticate);

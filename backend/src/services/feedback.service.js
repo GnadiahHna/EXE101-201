@@ -53,15 +53,19 @@ function serializeFeedback(doc, authorUser, viewer = null, isAdmin = false) {
   const isOwner = viewerId ? viewerId === Number(f.userId) : false;
   const isAnonymous = Boolean(f.isAnonymous);
 
-  const showAuthor = isAdmin || isOwner || !isAnonymous;
+  const showAuthor = isAdmin || isOwner;
 
   const result = {
     id: f.id,
     userId: showAuthor ? f.userId : undefined,
     appointmentId: f.appointmentId || undefined,
     doctorId: f.doctorId || undefined,
-    patientName: showAuthor ? (author.fullName || 'Bệnh nhân') : 'Bệnh nhân ẩn danh',
-    patientEmail: showAuthor ? author.email : undefined,
+    patientName: isAdmin || isOwner
+      ? author.fullName || 'Bệnh nhân'
+      : isAnonymous
+        ? 'Bệnh nhân ẩn danh'
+        : (author.fullName || 'Bệnh nhân'),
+    patientEmail: isAdmin || isOwner ? author.email : undefined,
     rating: f.rating,
     title: f.title || '',
     comment: f.comment,

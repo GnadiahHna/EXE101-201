@@ -5,6 +5,22 @@ const env = require('../config/env');
 
 let transporter = null;
 
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+const DEFAULT_ANTI_SPAM_HEADERS = {
+  'X-Entity-Ref-ID': 'NovaClinic-AutoNotification',
+  'Precedence': 'bulk',
+  'Auto-Submitted': 'auto-generated',
+};
+
 function getTransporter() {
   if (transporter) return transporter;
 
@@ -28,9 +44,12 @@ function getTransporter() {
  * Generate responsive HTML email for appointment confirmation
  */
 function buildAppointmentHtml({ patientName, appointment, doctorName, specialtyName, patientsList }) {
-  const appointmentNo = appointment.appointmentNo || `AP${appointment.id}`;
-  const apptTime = appointment.appointmentTime || '08:00 - 11:30';
-  const apptDate = appointment.appointmentDate || 'Chưa xác định';
+  const safePatientName = escapeHtml(patientName || 'Quý khách');
+  const safeDoctorName = escapeHtml(doctorName || 'Bác sĩ chuyên khoa');
+  const safeSpecialtyName = escapeHtml(specialtyName || 'Đa khoa');
+  const appointmentNo = escapeHtml(appointment.appointmentNo || `AP${appointment.id}`);
+  const apptTime = escapeHtml(appointment.appointmentTime || '08:00 - 11:30');
+  const apptDate = escapeHtml(appointment.appointmentDate || 'Chưa xác định');
   const apptType = appointment.type === 'ONLINE' ? 'Khám trực tuyến (Online)' : 'Khám trực tiếp tại phòng khám';
 
   return `
@@ -68,7 +87,7 @@ function buildAppointmentHtml({ patientName, appointment, doctorName, specialtyN
       <p>Xác nhận đặt lịch hẹn & thanh toán cọc thành công</p>
     </div>
     <div class="content">
-      <div class="greeting">Kính gửi ${patientName || 'Quý khách'},</div>
+      <div class="greeting">Kính gửi ${safePatientName},</div>
       <div class="desc">
         Hệ thống đã nhận được khoản <strong>tiền cọc 5.000 VNĐ</strong> và xác nhận lịch hẹn khám của quý khách với chi tiết như sau:
       </div>
@@ -80,11 +99,11 @@ function buildAppointmentHtml({ patientName, appointment, doctorName, specialtyN
         </div>
         <div class="info-row">
           <span class="info-label">Bác sĩ phụ trách:</span>
-          <span class="info-val">${doctorName || 'Bác sĩ chuyên khoa'}</span>
+          <span class="info-val">${safeDoctorName}</span>
         </div>
         <div class="info-row">
           <span class="info-label">Chuyên khoa:</span>
-          <span class="info-val">${specialtyName || 'Đa khoa'}</span>
+          <span class="info-val">${safeSpecialtyName}</span>
         </div>
         <div class="info-row">
           <span class="info-label">Thời gian khám:</span>
@@ -163,6 +182,10 @@ async function sendAppointmentConfirmationEmail({
         to,
         subject,
         html,
+        headers: {
+          ...DEFAULT_ANTI_SPAM_HEADERS,
+          'Message-ID': `<${Date.now()}.${Math.random().toString(36).slice(2)}@clinicbooking.com>`,
+        },
       });
       console.log(`[EmailService] Email sent successfully via SMTP to ${to} (MessageId: ${info.messageId})`);
       return { success: true, mode: 'smtp', messageId: info.messageId };
@@ -187,6 +210,7 @@ async function sendAppointmentConfirmationEmail({
  * Send Password Reset Link Email for Forgot Password flow
  */
 async function sendPasswordResetEmail({ to, fullName, resetUrl }) {
+  const safeFullName = escapeHtml(fullName || 'Quý khách');
   const subject = '[Nova Clinic] Yêu cầu đặt lại mật khẩu tài khoản';
   const html = `
 <!DOCTYPE html>
@@ -216,7 +240,7 @@ async function sendPasswordResetEmail({ to, fullName, resetUrl }) {
       <p>Đặt lại mật khẩu tài khoản</p>
     </div>
     <div class="content">
-      <div class="greeting">Xin chào ${fullName || 'Quý khách'},</div>
+      <div class="greeting">Xin chào ${safeFullName},</div>
       <div class="desc">
         Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu cho tài khoản đăng ký với email này. Vui lòng bấm vào nút bên dưới để tiến hành thiết lập mật khẩu mới:
       </div>
@@ -251,6 +275,10 @@ async function sendPasswordResetEmail({ to, fullName, resetUrl }) {
         to,
         subject,
         html,
+        headers: {
+          ...DEFAULT_ANTI_SPAM_HEADERS,
+          'Message-ID': `<${Date.now()}.${Math.random().toString(36).slice(2)}@clinicbooking.com>`,
+        },
       });
       console.log(`[EmailService] Password reset email sent via SMTP to ${to} (MessageId: ${info.messageId})`);
       return { success: true, mode: 'smtp', messageId: info.messageId };
@@ -274,6 +302,7 @@ async function sendPasswordResetEmail({ to, fullName, resetUrl }) {
  * Send Email Verification link
  */
 async function sendEmailVerificationEmail({ to, fullName, verifyUrl }) {
+  const safeFullName = escapeHtml(fullName || 'Quý khách');
   const subject = '[Nova Clinic] Xác minh địa chỉ email đăng ký';
   const html = `
 <!DOCTYPE html>
@@ -303,7 +332,7 @@ async function sendEmailVerificationEmail({ to, fullName, verifyUrl }) {
       <p>Xác minh tài khoản người dùng</p>
     </div>
     <div class="content">
-      <div class="greeting">Xin chào ${fullName || 'Quý khách'},</div>
+      <div class="greeting">Xin chào ${safeFullName},</div>
       <div class="desc">
         Cảm ơn bạn đã đăng ký tài khoản tại Nova Clinic. Vui lòng bấm vào nút bên dưới để xác minh địa chỉ email của bạn:
       </div>
@@ -338,6 +367,10 @@ async function sendEmailVerificationEmail({ to, fullName, verifyUrl }) {
         to,
         subject,
         html,
+        headers: {
+          ...DEFAULT_ANTI_SPAM_HEADERS,
+          'Message-ID': `<${Date.now()}.${Math.random().toString(36).slice(2)}@clinicbooking.com>`,
+        },
       });
       console.log(`[EmailService] Email verification sent via SMTP to ${to} (MessageId: ${info.messageId})`);
       return { success: true, mode: 'smtp', messageId: info.messageId };

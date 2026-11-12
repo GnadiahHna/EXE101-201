@@ -1,16 +1,52 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const env = require('./config/env');
 const routes = require('./routes');
 const oauthRoutes = require('./routes/oauth.routes');
 const { notFound, errorHandler, getTraceId } = require('./middlewares/error.middleware');
 const { defaultRateLimiter } = require('./middlewares/rateLimiter.middleware');
+const { httpLogger } = require('./middlewares/logger.middleware');
 
 const app = express();
 
 // Trust proxy configured from env (loopback, linklocal, etc.), do NOT parse X-Forwarded-For manually
 app.set('trust proxy', env.trustProxy || true);
+
+// Helmet security headers (CSP, Referrer-Policy, nosniff, etc.)
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    crossOriginEmbedderPolicy: false, // Allows cross-origin image loads for avatars
+  }),
+);
+
+// Permissions-Policy header
+app.use((_req, res, next) => {
+  res.setHeader(
+    'Permissions-Policy',
+    'geolocation=(), microphone=(), camera=(), payment=(self)',
+  );
+  next();
+});
+
+// Structured JSON logging
+if (env.nodeEnv !== 'test') {
+  app.use(httpLogger);
+}
 
 // Native mobile apps send no Origin header, so requests without one are allowed.
 // `credentials: true` is required because Frontend OAuth2/logout uses `credentials: 'include'`.
@@ -46,9 +82,9 @@ app.use(
   }),
 );
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.text({ type: 'text/plain' }));
+// Restrict JSON payload size to 100kb, avoid global express.text
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 app.use(cookieParser(env.jwtSecret));
 
 // Trace ID correlation

@@ -82,25 +82,25 @@ export default function Step3Patients() {
   const selectedCount = selected.length;
   const remainingSlots = Math.max(0, maxSelectable - selectedCount);
 
-  // Load form data from localStorage on mount
+  // Load form data from sessionStorage on mount
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = sessionStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         setManualForm(parsed);
       }
     } catch (err) {
-      console.error('Error loading form from localStorage:', err);
+      console.error('Error loading form from sessionStorage:', err);
     }
   }, []);
 
-  // Save form data to localStorage whenever it changes
+  // Save form data to sessionStorage whenever it changes
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(manualForm));
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(manualForm));
     } catch (err) {
-      console.error('Error saving form to localStorage:', err);
+      console.error('Error saving form to sessionStorage:', err);
     }
   }, [manualForm]);
 
@@ -244,7 +244,7 @@ export default function Step3Patients() {
     };
 
     setSelections([...selected, newSelection]);
-    // Keep form data in localStorage, only clear reason field for next entry
+    // Keep form data in sessionStorage, only clear reason field for next entry
     setManualForm((prev) => ({
       ...prev,
       reason: "", // Clear reason for next patient, keep other fields

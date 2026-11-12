@@ -282,6 +282,9 @@ export default function Step4Review() {
         setIsCheckingPayment(false);
         setPaymentStatus("SUCCESS");
         dispatch({ type: "SET_VOUCHER", value: null });
+        // Clear cached Step 3 patient PII from sessionStorage upon successful completion
+        sessionStorage.removeItem("appointment_step3_manual_form");
+        sessionStorage.removeItem("appt");
 
         if (pendingBookingData) {
           setConfirmedAppointment({ ...pendingBookingData, status: "CONFIRMED" });

@@ -52,11 +52,18 @@ const listReceptionists = async (_req, res) => {
   return sendSuccess(res, { data: receptionists });
 };
 
-const listDoctors = async (_req, res) => {
+const listDoctors = async (req, res) => {
   const doctors = await userService.listUsers({
+    actor: req.user,
     role: ROLES.DOCTOR,
     includeDisabled: false,
+    keyword: req.query.search || req.query.keyword || null,
   });
+  // If request is from unauthenticated guest, sanitize to public doctor DTO
+  if (!req.user || (req.user.userType !== ROLES.ADMIN && req.user.userType !== ROLES.RECEPTIONIST)) {
+    const { toPublicDoctor } = require('../utils/doctorDto');
+    return sendSuccess(res, { data: doctors.map((d) => toPublicDoctor(d)) });
+  }
   return sendSuccess(res, { data: doctors });
 };
 

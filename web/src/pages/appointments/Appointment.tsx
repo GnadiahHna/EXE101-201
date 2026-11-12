@@ -152,6 +152,14 @@ export default function Appointment() {
     };
   }, [voucherIdParam, dispatch]);
 
+  // Clean up cached patient manual form from sessionStorage when component unmounts (leaving the flow)
+  useEffect(() => {
+    return () => {
+      // If user navigated away from the booking flow entirely, clean up manual form PII
+      sessionStorage.removeItem("appointment_step3_manual_form");
+    };
+  }, []);
+
   const currentStep = Math.min(Math.max(state.step || 1, 1), 4);
   const progressPercent = ((currentStep - 1) / (STEPS.length - 1)) * 100;
 

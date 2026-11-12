@@ -230,11 +230,16 @@ async function listUsers({
 
   if (typeof keyword === 'string' && keyword.trim()) {
     const safeRegex = new RegExp(escapeRegex(keyword.trim()), 'i');
-    filter.$or = [
-      { fullName: safeRegex },
-      { email: safeRegex },
-      { phoneNumber: safeRegex },
-    ];
+    // If query is for public doctor listing, do NOT filter by email or phoneNumber
+    if (role === ROLES.DOCTOR && !actor) {
+      filter.$or = [{ fullName: safeRegex }];
+    } else {
+      filter.$or = [
+        { fullName: safeRegex },
+        { email: safeRegex },
+        { phoneNumber: safeRegex },
+      ];
+    }
   }
 
   const docs = await User.find(filter).sort({ id: -1 });
