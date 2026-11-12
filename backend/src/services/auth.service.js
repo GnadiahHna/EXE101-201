@@ -22,9 +22,8 @@ const OAUTH_PASSWORD_SENTINEL = '{noop}GOOGLE_LOGIN';
  * Account Lockout configuration
  */
 const MAX_FAILED_ATTEMPTS = 5;
-function getLockoutDurationMs(failedCount) {
-  if (failedCount >= 10) return 60 * 60 * 1000; // 60 minutes
-  return 15 * 60 * 1000; // 15 minutes
+function getLockoutDurationMs(_failedCount) {
+  return 5 * 60 * 1000; // 5 minutes
 }
 
 async function login({ email, password }, req = null) {
@@ -86,7 +85,7 @@ async function login({ email, password }, req = null) {
     }
 
     const remaining = MAX_FAILED_ATTEMPTS - user.failedLoginCount;
-    throw new ApiError(401, `Email hoặc mật khẩu không chính xác (bạn còn ${remaining}/${MAX_FAILED_ATTEMPTS} lần thử)`);
+    throw new ApiError(401, `Email hoặc mật khẩu không chính xác\n(bạn còn ${remaining}/${MAX_FAILED_ATTEMPTS} lần thử)`);
   }
 
   // Login successful -> reset lockout counters

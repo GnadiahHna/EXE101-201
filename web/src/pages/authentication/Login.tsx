@@ -268,7 +268,7 @@ export default function Login() {
 
             {error && (
               <div className="lamp-error-block">
-                <span>{error}</span>
+                <span style={{ whiteSpace: 'pre-line' }}>{error}</span>
                 {failedOnce && (
                   <Link to="/forgot-password" className="btn-forgot-lamp">Quên mật khẩu?</Link>
                 )}
