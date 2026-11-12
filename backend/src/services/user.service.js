@@ -21,7 +21,6 @@ const {
   Appointment,
   Prescription,
   PaymentTransaction,
-  GroupHealthAssignment,
   ShiftCancellationRequest,
   Image,
 } = require('../models');
@@ -701,13 +700,10 @@ async function deleteStaff(actor, targetId, { expectedRole = null, req = null } 
   const historyItems = [];
 
   if (user.userType === ROLES.DOCTOR) {
-    const [shiftsCount, appointmentsCount, assignmentsCount, cancelReqsCount] =
+    const [shiftsCount, appointmentsCount, cancelReqsCount] =
       await Promise.all([
         DoctorShift.countDocuments({ doctorId: user.id }),
         Appointment.countDocuments({ doctorId: user.id }),
-        GroupHealthAssignment
-          ? GroupHealthAssignment.countDocuments({ doctorId: user.id })
-          : 0,
         ShiftCancellationRequest
           ? ShiftCancellationRequest.countDocuments({ doctorId: user.id })
           : 0,
@@ -715,7 +711,6 @@ async function deleteStaff(actor, targetId, { expectedRole = null, req = null } 
 
     if (shiftsCount > 0) historyItems.push(`${shiftsCount} ca trực`);
     if (appointmentsCount > 0) historyItems.push(`${appointmentsCount} lịch hẹn khám`);
-    if (assignmentsCount > 0) historyItems.push(`${assignmentsCount} phân công khám đoàn`);
     if (cancelReqsCount > 0) historyItems.push(`${cancelReqsCount} yêu cầu hủy ca`);
 
     if (appointmentsCount > 0) {

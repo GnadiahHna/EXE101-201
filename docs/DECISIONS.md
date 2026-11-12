@@ -180,7 +180,7 @@ Tài liệu này ghi nhận toàn bộ các quyết định kỹ thuật nền t
      - **Miễn trừ chính sách phạt:** Lễ tân/Admin hủy lịch phòng khám **KHÔNG** bị giới hạn cửa sổ 48h/24h và **KHÔNG** làm tăng bộ đếm số lần hủy hay kích hoạt khóa đặt lịch của bệnh nhân (`cancelledCount` / `isBookingLocked`). Chính sách khóa 24h chỉ áp dụng riêng cho luồng Bệnh nhân tự hủy (`UC-PAT-06`).
      - **Chính sách hoàn tiền (Refund Flag):** Hệ thống không tự động hoàn tiền trực tiếp qua API ngân hàng; nếu lịch đã thanh toán thành công (hoặc có giao dịch thanh toán thành công), hệ thống gắn cờ `refundRequired=true` để bộ phận kế toán đối soát xử lý hoàn tiền thủ công.
   6. **Quy tắc Đổi Lịch (Reschedule):**
-     - Ca trực mới (`DoctorShift`) phải tồn tại, có trạng thái `ACTIVE` (không `CANCELLED` hay `GROUP_BLOCKED`), và phải thuộc cùng bác sĩ phụ trách ca khám cũ (`newShift.doctorId === oldAppointment.doctorId`).
+     - Ca trực mới (`DoctorShift`) phải tồn tại, có trạng thái `ACTIVE` (không `CANCELLED`), và phải thuộc cùng bác sĩ phụ trách ca khám cũ (`newShift.doctorId === oldAppointment.doctorId`).
      - Slot mới phải `AVAILABLE`. Sử dụng conditional atomic update trên slot (`slots.status: 'AVAILABLE'`). Nếu slot đã bị người khác đặt hoặc concurrent conflict -> trả 409 `SLOT_ALREADY_BOOKED` và **KHÔNG THAY ĐỔI BẤT KỲ DỮ LIỆU NÀO**.
      - Lịch cũ chuyển sang `RESCHEDULED` qua `AppointmentStateService`.
      - Tạo một `Appointment` mới (với mã `appointmentNo` mới dạng `OFF...`, bảo lưu toàn bộ snapshot bệnh nhân `patients`, hình thức khám `type`, và lý do đổi lịch `reason`).

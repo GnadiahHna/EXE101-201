@@ -7,8 +7,6 @@ const DoctorShift = require('./doctorShift.model');
 const Appointment = require('./appointment.model');
 const Prescription = require('./prescription.model');
 const PaymentTransaction = require('./paymentTransaction.model');
-const GroupHealthRequest = require('./GroupHealthRequest');
-const GroupHealthAssignment = require('./GroupHealthAssignment');
 const ShiftCancellationRequest = require('./ShiftCancellationRequest');
 const RssSource = require('./rssSource.model');
 const News = require('./news.model');
@@ -34,8 +32,6 @@ module.exports = {
   Appointment,
   Prescription,
   PaymentTransaction,
-  GroupHealthRequest,
-  GroupHealthAssignment,
   ShiftCancellationRequest,
   RssSource,
   News,

@@ -113,20 +113,6 @@ describe('UC-PUB-01 & UC-PAT-03: Lịch ca trực khả dụng của bác sĩ (/
       ],
     });
 
-    // 3. GROUP_BLOCKED shift on futureDate (should be hidden)
-    await DoctorShift.create({
-      doctorId,
-      date: futureDate,
-      shift: 'EVENING',
-      startTime: '18:00',
-      endTime: '21:00',
-      maxPatients: 2,
-      status: 'GROUP_BLOCKED',
-      slots: [
-        { id: 106, slotNumber: 1, startTime: '18:00', endTime: '18:45', status: 'AVAILABLE' },
-      ],
-    });
-
     // 4. ACTIVE shift for TODAY (to test time cutoff)
     await DoctorShift.create({
       doctorId,
@@ -184,12 +170,12 @@ describe('UC-PUB-01 & UC-PAT-03: Lịch ca trực khả dụng của bác sĩ (/
     assert.equal(Array.isArray(res.body.data), true);
   });
 
-  it('2. Filter ACTIVE shifts only: excludes CANCELLED and GROUP_BLOCKED shifts', async () => {
+  it('2. Filter ACTIVE shifts only: excludes CANCELLED shifts', async () => {
     const res = await apiRequest('GET', `/shifts/by-doctor/${doctorId}?date=${futureDate}`);
     assert.equal(res.status, 200);
     const shifts = res.body.data;
 
-    // Only 1 ACTIVE shift should be returned, out of 3 seeded for futureDate
+    // Only 1 ACTIVE shift should be returned, out of 2 seeded for futureDate
     assert.equal(shifts.length, 1);
     const shift = shifts[0];
     assert.equal(shift.shift, 'MORNING');

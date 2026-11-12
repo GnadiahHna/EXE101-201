@@ -416,16 +416,8 @@ const adjustShift = async (actor, shiftId, payload, req) => {
   // 3. Status adjustment
   if (payload?.status !== undefined) {
     const nextStatus = String(payload.status).toUpperCase();
-    if (!['ACTIVE', 'CANCELLED', 'GROUP_BLOCKED'].includes(nextStatus)) {
-      throw new ApiError(400, 'status phải là ACTIVE, CANCELLED hoặc GROUP_BLOCKED');
-    }
-
-    if (nextStatus === 'GROUP_BLOCKED' && bookedSlotIds.size > 0) {
-      throw new ApiError(
-        409,
-        `Không thể chuyển ca trực sang khám đoàn (GROUP_BLOCKED) vì đã có ` +
-          `${bookedSlotIds.size} lịch hẹn cá nhân được đặt trước.`,
-      );
+    if (!['ACTIVE', 'CANCELLED'].includes(nextStatus)) {
+      throw new ApiError(400, 'status phải là ACTIVE hoặc CANCELLED');
     }
 
     shift.status = nextStatus;

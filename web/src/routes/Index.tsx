@@ -46,7 +46,6 @@ import DoctorShifts from '../pages/doctor/DoctorShifts';
 import CreateShift from '../pages/doctor/CreateShift';
 import DoctorAppointment from '../pages/doctor/DoctorAppointment';
 import AddPrescription from '../pages/doctor/AddPrescription';
-import DoctorGroupHealth from '../pages/doctor/DoctorGroupHealth';
 //Trang receptionist
 import RecepLayout from '../components/layout/receplayouts/RecepLayout';
 import RecepShift from '../pages/receptionist/RecepShift';
@@ -136,7 +135,6 @@ export default function AppRoutes() {
             <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
             <Route path="/doctor/shifts" element={<DoctorShifts />} />
             <Route path="/doctor/shift/create" element={<CreateShift />} />
-            <Route path="/doctor/group-health" element={<DoctorGroupHealth />} />
             {/* Placeholder routes */}
             <Route path="/doctor/appointments" element={<DoctorAppointment />} />
             <Route path="/doctor/appointment/:id/prescription" element={<AddPrescription />} />

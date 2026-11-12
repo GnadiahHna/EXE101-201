@@ -34,10 +34,6 @@ export default function DoctorSidebar() {
             <span className="icon">{Icon.calendar}</span>
             Shift
           </Nav.Link>
-          <Nav.Link as={NavLink} to="/doctor/group-health" className="item">
-            <span className="icon">{Icon.users}</span>
-            Group health
-          </Nav.Link>
         </Nav>
       </div>
     </aside>

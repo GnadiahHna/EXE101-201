@@ -488,16 +488,16 @@ describe('UC-ADM-04: Quản lý ca / lịch tuần (Admin Shift & Weekly Schedul
       assert.match(res.body.message, /Không thể giảm số lượng bệnh nhân xuống 1/i);
     });
 
-    it('Không cho phép đổi trạng thái sang GROUP_BLOCKED nếu ca đã có lịch hẹn cá nhân (409 Conflict)', async () => {
+    it('Từ chối đổi trạng thái sang giá trị không hợp lệ (400 Bad Request)', async () => {
       const res = await apiRequest('PUT', `/shifts/admin/${createdShiftId}`, {
         token: adminToken,
         body: {
-          status: 'GROUP_BLOCKED',
+          status: 'INVALID_STATUS',
         },
       });
 
-      assert.equal(res.status, 409);
-      assert.match(res.body.message, /khám đoàn/i);
+      assert.equal(res.status, 400);
+      assert.match(res.body.message, /status phải là ACTIVE hoặc CANCELLED/i);
     });
 
     it('Giảm capacity hợp lệ (ví dụ từ 5 xuống 3) bảo toàn toàn bộ slot đã đặt', async () => {

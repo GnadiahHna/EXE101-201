@@ -64,7 +64,7 @@ File `Dump20261029.sql` có **21 bảng quan hệ** (dùng JPA Joined Inheritanc
 | `feedbacks` | `feedbacks` | Ánh xạ 1-1 (`id`, `userId`, `rating`, `title`, `comment`, `category`, `isAnonymous`, `status`, `adminResponse`, `adminRespondedAt`). |
 | `images` | `images` | Ánh xạ 1-1 (`id`, `imageUrl`, `doctorId`, `specialtyId`). Đồng bộ cập nhật `avatarUrl` trên `users` để đọc nhanh. |
 | `rss_sources` + `news` | `rss_sources` & `news` | Ánh xạ 1-1 phục vụ tin tức y tế trang chủ (`/rss-sources/news/latest`). |
-| `shift_cancel_request`, `group_health_request`, `group_health_assignments` | *(Không bắt buộc ở Phase 1–4)* | Hiện tại `web/` **không có trang hay API nào** gọi tới 3 bảng này. Có thể bỏ qua hoặc để dành mở rộng sau. |
+| `shift_cancel_request` | *(Không bắt buộc ở Phase 1–4)* | Yêu cầu hủy ca trực. |
 
 ---
 
@@ -137,7 +137,7 @@ const DoctorShiftSchema = new Schema({
   note: { type: String, default: null },
   repeatWeekly: { type: Boolean, default: false },
   repeatCount: { type: Number, default: 0 },
-  status: { type: String, enum: ['ACTIVE', 'CANCELLED', 'GROUP_BLOCKED'], default: 'ACTIVE' },
+  status: { type: String, enum: ['ACTIVE', 'CANCELLED'], default: 'ACTIVE' },
   slots: [ShiftSlotSchema],
 });
 // Unique constraint y hệt SQL `UKmrtxpnioa9s4i8a1stgf05l08`:

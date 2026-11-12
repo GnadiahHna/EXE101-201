@@ -44,7 +44,7 @@
 | `date` / `shiftDate` | `date` | `String` (`YYYY-MM-DD`) | Ngày trực |
 | `shiftType` | `shift` | `String` | `'MORNING'`, `'AFTERNOON'`, `'EVENING'` |
 | `startTime` / `endTime` | `startTime` / `endTime` | `String` (`HH:mm`) | Khung giờ toàn ca |
-| `status` | `status` | `String` | `'ACTIVE'`, `'CANCELLED'`, `'GROUP_BLOCKED'` |
+| `status` | `status` | `String` | `'ACTIVE'`, `'CANCELLED'` |
 | `slots` | `slots` | `[Object]` | Mảng slot lồng trong document |
 | `slot.id` | `slots[i].id` | `Number` | ID từng slot khám |
 | `slot.slotNumber` | `slots[i].slotNumber` | `Number` | Số thứ tự slot trong ca (1, 2, 3...) |
