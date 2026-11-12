@@ -255,7 +255,9 @@ Sau khi thanh toán thành công, hệ thống lập tức xác nhận lịch h�
           return `<li><b>${escapeHtml(d.fullName)}</b>${deg} - Chuyên khoa ${specName}</li>`;
         }).join('') + '</ul>';
       }
-    } catch {}
+    } catch (_err) {
+      // Ignored: fallback to generic text if doctor retrieval fails
+    }
 
     return `<b>Đội ngũ bác sĩ chuyên khoa nổi bật tại Nano Clinic:</b><br/>
 ${doctorsHtml}

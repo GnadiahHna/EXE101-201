@@ -161,25 +161,53 @@ async function dispatchPendingEvents({ limit = 20 } = {}) {
 }
 
 let workerIntervalId = null;
+let currentWorkerExecution = null;
+const OUTBOX_LOCK_NAME = 'outbox_dispatcher_worker';
+const OUTBOX_LOCK_TTL_MS = 30000; // 30s
 
 function startOutboxWorker(intervalMs = 5000) {
   if (workerIntervalId) return;
+  const { acquireLock, releaseLock } = require('../utils/jobLock');
+
   workerIntervalId = setInterval(async () => {
-    try {
-      await dispatchPendingEvents();
-    } catch (err) {
-      console.warn(`[Outbox Worker] Dispatch error: ${err.message}`);
+    const lockResult = await acquireLock(OUTBOX_LOCK_NAME, OUTBOX_LOCK_TTL_MS).catch((err) => {
+      console.warn(`[Outbox Worker] Lock acquisition warning: ${err.message}`);
+      return { acquired: false };
+    });
+
+    if (!lockResult || !lockResult.acquired) {
+      return;
     }
+
+    currentWorkerExecution = (async () => {
+      try {
+        await dispatchPendingEvents();
+      } catch (err) {
+        console.warn(`[Outbox Worker] Dispatch error: ${err.message}`);
+      } finally {
+        await releaseLock(OUTBOX_LOCK_NAME).catch(() => {});
+      }
+    })();
+
+    await currentWorkerExecution;
   }, intervalMs);
+
   if (typeof workerIntervalId.unref === 'function') {
     workerIntervalId.unref();
   }
 }
 
-function stopOutboxWorker() {
+async function stopOutboxWorker() {
   if (workerIntervalId) {
     clearInterval(workerIntervalId);
     workerIntervalId = null;
+  }
+  if (currentWorkerExecution) {
+    try {
+      await currentWorkerExecution;
+    } catch {
+      // Ignore in graceful shutdown
+    }
   }
 }
 

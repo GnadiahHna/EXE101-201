@@ -75,6 +75,8 @@ const paymentTransactionSchema = new mongoose.Schema(
 
 // Compound index on appointmentId and status
 paymentTransactionSchema.index({ appointmentId: 1, status: 1 });
+paymentTransactionSchema.index({ userId: 1, createdAt: -1 });
+paymentTransactionSchema.index({ status: 1, expiresAt: 1 });
 
 // Partial unique index on transactionNo to allow multiple null/pending entries while guarding duplicates
 paymentTransactionSchema.index(

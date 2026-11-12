@@ -51,3 +51,4 @@ function toPublicDoctor(doctor, { rating = null } = {}) {
 module.exports = {
   toPublicDoctor,
 };
+

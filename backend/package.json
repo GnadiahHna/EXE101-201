@@ -14,7 +14,8 @@
     "import:doctors": "node scripts/import-doctors-from-dump.js",
     "test": "node --test tests/*.test.js",
     "test:p0": "node --test tests/p0-*.test.js",
-    "lint": "node --check src/server.js src/app.js src/config/*.js src/services/*.js src/middlewares/*.js src/models/*.js src/utils/*.js src/controllers/*.js src/routes/*.js src/routes/features/*.js",
+    "lint": "eslint src/ tests/",
+    "lint:syntax": "node --check src/server.js src/app.js src/config/*.js src/services/*.js src/middlewares/*.js src/models/*.js src/utils/*.js src/controllers/*.js src/routes/*.js src/routes/features/*.js",
     "build": "node -e \"console.log('[Build] Verification passed: ClinicBooking Modular Monolith Backend')\""
   },
   "repository": {
@@ -50,6 +51,10 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "eslint": "^9.21.0",
+    "eslint-plugin-security": "^3.0.1",
+    "globals": "^16.0.0",
     "nodemon": "^3.1.14"
   }
 }

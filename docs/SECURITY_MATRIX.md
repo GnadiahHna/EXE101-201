@@ -55,3 +55,4 @@ File kiểm thử tự động: `backend/tests/security-phase3-idor.test.js`
 - Test 6: Bệnh nhân A không thể sử dụng (`redeem`) voucher thuộc về Bệnh nhân B.
 - Test 7: Bệnh nhân A không thể sửa hoặc xóa feedback đánh giá của Bệnh nhân B.
 - Test 8: Public API bác sĩ (`/api/doctors/:id`, `/api/doctors/search`, `/api/doctors/by-specialty/:id`) tuyệt đối không trả về `email` hoặc `phoneNumber`.
+

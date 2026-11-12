@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { Router } = require('express');
-const { getHealth } = require('../controllers/health.controller');
+const { getHealth, getReadiness } = require('../controllers/health.controller');
 const authRoutes = require('./auth.routes');
 const userRoutes = require('./user.routes');
 const adminRoutes = require('./admin.routes');
@@ -48,6 +48,7 @@ if (fs.existsSync(featuresDir)) {
 
 // --- 2. Core & Legacy Routers ---
 router.get('/health', getHealth);
+router.get('/ready', getReadiness);
 
 // Mount OAuth2 under /api/oauth2 as well as /oauth2
 router.use('/oauth2', require('./oauth.routes'));

@@ -20,6 +20,7 @@ const Voucher = require('./voucher.model');
 const UserVoucher = require('./userVoucher.model');
 const Feedback = require('./feedback.model');
 const RefreshToken = require('./refreshToken.model');
+const JobLock = require('./jobLock.model');
 
 module.exports = {
   Counter,
@@ -27,6 +28,7 @@ module.exports = {
   syncSequenceFloor,
   User,
   RefreshToken,
+  JobLock,
   AuditLog,
   Specialty,
   Image,

@@ -11,18 +11,32 @@ const { clock } = require('../services/clock.service');
 const env = require('../config/env');
 const configService = require('../config/config.service');
 const { APPOINTMENT_STATUSES, PAYMENT_STATUSES, AUDIT_ACTIONS } = require('../constants/enums');
+const { acquireLock, releaseLock } = require('../utils/jobLock');
 
 let isRunning = false;
+let currentExecutionPromise = null;
 let jobTimer = null;
+const JOB_LOCK_NAME = 'payment_maintenance_job';
+const LOCK_TTL_MS = 120000; // 2 minutes
 
 const runOnce = async () => {
   if (isRunning) {
     return;
   }
-  isRunning = true;
 
-  try {
-    const now = clock.now();
+  const lockResult = await acquireLock(JOB_LOCK_NAME, LOCK_TTL_MS).catch((err) => {
+    console.warn('[paymentMaintenance] Warning acquiring lock:', err.message);
+    return { acquired: false };
+  });
+
+  if (!lockResult || !lockResult.acquired) {
+    return;
+  }
+
+  isRunning = true;
+  currentExecutionPromise = (async () => {
+    try {
+      const now = clock.now();
 
     // a) cleanupExpiredTransactions: PENDING quá expiresAt -> EXPIRED + release voucher
     try {
@@ -231,7 +245,11 @@ const runOnce = async () => {
     }
   } finally {
     isRunning = false;
+    await releaseLock(JOB_LOCK_NAME).catch(() => {});
   }
+  })();
+
+  return currentExecutionPromise;
 };
 
 const start = () => {
@@ -250,10 +268,17 @@ const start = () => {
   }
 };
 
-const stop = () => {
+const stop = async () => {
   if (jobTimer) {
     clearInterval(jobTimer);
     jobTimer = null;
+  }
+  if (currentExecutionPromise) {
+    try {
+      await currentExecutionPromise;
+    } catch {
+      // Ignore in graceful shutdown
+    }
   }
 };
 

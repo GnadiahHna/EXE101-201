@@ -9,7 +9,8 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3000
-      MONGO_URI: mongodb://mongodb:27017/clinic_booking
+      MONGO_URI: mongodb://mongodb:27017/clinic_booking?replicaSet=rs0
+      ENABLE_MONGO_TRANSACTIONS: "true"
       CORS_ORIGINS: http://localhost:${WEB_PORT:-5173}
     volumes:
       - ./backend:/app
@@ -36,12 +37,21 @@ services:
   mongodb:
     image: mongo:7.0
     container_name: clinic_booking_mongodb
+    command: ["--replSet", "rs0", "--bind_ip_all"]
     ports:
       - "127.0.0.1:27017:27017"
     volumes:
       - mongo_data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      test: >
+        mongosh --quiet --eval "
+        try {
+          rs.status();
+        } catch (e) {
+          rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongodb:27017' }] });
+        }
+        db.adminCommand('ping');
+        "
       interval: 10s
       timeout: 5s
       retries: 5

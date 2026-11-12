@@ -65,7 +65,7 @@ class ConfigService {
   }
 
   get enableMongoTransactions() {
-    return this.getBoolean('ENABLE_MONGO_TRANSACTIONS', false);
+    return this.getBoolean('ENABLE_MONGO_TRANSACTIONS', true);
   }
 
   // --- Security & JWT ---
