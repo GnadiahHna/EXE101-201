@@ -82,10 +82,11 @@ async function login({ email, password }, req = null) {
 
     if (locked) {
       const minutes = Math.ceil(getLockoutDurationMs(user.failedLoginCount) / 60000);
-      throw new ApiError(403, `Tài khoản đã bị tạm khóa ${minutes} phút do nhập sai mật khẩu nhiều lần`);
+      throw new ApiError(403, `Tài khoản đã bị tạm khóa ${minutes} phút do nhập sai mật khẩu ${user.failedLoginCount}/${MAX_FAILED_ATTEMPTS} lần`);
     }
 
-    throw new ApiError(401, 'Email hoặc mật khẩu không chính xác');
+    const remaining = MAX_FAILED_ATTEMPTS - user.failedLoginCount;
+    throw new ApiError(401, `Email hoặc mật khẩu không chính xác (Sai lần ${user.failedLoginCount}/${MAX_FAILED_ATTEMPTS}. Còn ${remaining} lần trước khi khóa)`);
   }
 
   // Login successful -> reset lockout counters
