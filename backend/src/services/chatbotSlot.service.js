@@ -15,9 +15,9 @@ async function getSuggestedSlotsForSpecialty(specialtyId, limit = 3) {
     const specialty = await Specialty.findOne({ id: specNum, isEnable: true }).select('name').lean();
     const specialtyName = specialty?.name || '';
 
-    // Find active doctors in this specialty
+    // Find active doctors in this specialty (hỗ trợ cả userType và role)
     const doctors = await User.find({
-      role: 'Doctor',
+      $or: [{ role: 'Doctor' }, { userType: 'Doctor' }],
       specialtyId: specNum,
       isEnable: true,
       isDeleted: false,

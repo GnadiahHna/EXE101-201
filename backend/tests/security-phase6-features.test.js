@@ -95,6 +95,22 @@ test.describe('Phase 6: Advanced Clinic Features & Safety Suite', () => {
   });
 
   test.after(async () => {
+    // Clean up test fixtures from DB so dev DB stays clean
+    try {
+      if (testPatient?.id || testDoctor?.id) {
+        const testIds = [testPatient?.id, testDoctor?.id].filter(Boolean);
+        await User.deleteMany({ id: { $in: testIds } });
+        await Appointment.deleteMany({
+          $or: [{ patientId: { $in: testIds } }, { doctorId: { $in: testIds } }, { appointmentNo: /^REMINDER_/ }, { appointmentNo: /^VIDEO_/ }]
+        });
+        await Waitlist.deleteMany({ patientId: { $in: testIds } });
+        await OutboxEvent.deleteMany({ 'payload.to': 'patient@phase6-test.com' });
+        await DoctorShift.deleteMany({ id: 9991 });
+      }
+    } catch {
+      // Ignore cleanup error
+    }
+
     if (server) {
       await new Promise((resolve) => server.close(resolve));
     }
