@@ -216,3 +216,45 @@ Sau khi chạy lệnh `npm run seed`, hệ thống đã có sẵn các tài kho�
 | **Bác sĩ (Doctor)** | `bacsi.demo02@example.com` | `123456` | Bác sĩ Tim mạch - Lâm Trọng Cơ |
 | **Bệnh nhân (Patient)** | `miraisan2512@gmail.com` | `123456` | Bệnh nhân mẫu Huy Quoc |
 
+---
+
+## 7. Quality Gates (CI/CD & Git Hooks)
+
+Dự án thiết lập hệ thống kiểm soát chất lượng nhiều lớp nhằm ngăn chặn commit mã lỗi, rò rỉ secret hoặc làm hỏng bản build production:
+
+### Local Git Hooks (Husky)
+- **Pre-commit hook (`.husky/pre-commit`):**
+  - Quét an toàn tự động: Chặn commit các file nhạy cảm (`.env`, `.env.*` ngoại trừ `.env.example`), khóa bí mật/chứng chỉ (`*.pem`, `*.key`, `id_rsa*`, `*.p12`), file dump `.sql` ngoài `docs/`, và file kích thước vượt quá 5MB.
+  - Tự động chạy `gitleaks protect --staged` (nếu máy có cài `gitleaks`).
+  - Chạy `lint-staged`: Tự động kiểm tra cú pháp backend bằng `node --check` và lint web bằng `oxlint`.
+- **Pre-push hook (`.husky/pre-push`):**
+  - Chặn push trực tiếp lên nhánh được bảo vệ (`main`/`master`). Yêu cầu tạo nhánh tính năng và mở Pull Request (override khẩn cấp: `ALLOW_MAIN_PUSH=true git push`).
+  - Tự động thực thi `npm run ci:local` (`node scripts/ci-local.mjs`).
+
+### Lệnh kiểm tra chất lượng tại Local (`ci-local`)
+Chạy toàn bộ pipeline kiểm tra trước khi push mã nguồn:
+```bash
+npm run ci:local
+```
+Pipeline thực hiện tuần tự:
+1. **Backend:** Kiểm tra cú pháp (`npm run lint`), chạy bộ test cốt lõi và kiểm tra bảo mật fail-fast.
+2. **Web:** Kiểm tra lint (`oxlint`), kiểm tra kiểu (`npx tsc --noEmit`), và thử nghiệm build production (`npm run build`).
+3. **Bảo mật:** Quét lỗ hổng dependency production mức High/Critical (`npm audit --omit=dev --audit-level=high`).
+4. **Docker:** Xác thực cấu hình `docker compose config -q` (nếu local có cài Docker).
+
+**Các cờ bỏ qua khi cần thiết (Environment Flags):**
+- `SKIP_TESTS=1 npm run ci:local`: Bỏ qua bước chạy test backend.
+- `SKIP_AUDIT=1 npm run ci:local`: Bỏ qua bước kiểm tra npm audit.
+- `SKIP_BUILD=1 npm run ci:local`: Bỏ qua bước build web.
+- `TEST_FILTER="tests/xyz.test.js" npm run ci:local`: Chỉ định file test chạy trong local CI.
+- `RUN_ALL_TESTS=1 npm run ci:local`: Chạy toàn bộ các test file trong `backend/tests/`.
+
+### GitHub Actions CI Workflow (`.github/workflows/ci.yml`)
+Chạy tự động khi có PR hoặc Push vào nhánh `main`:
+- **backend:** Khởi động MongoDB service container, chạy `npm ci`, lint và security/core test suite.
+- **web:** `npm ci`, `oxlint`, `tsc --noEmit`, `npm run build`, upload dist artifact (lưu 7 ngày).
+- **security:** Quét file `.env` bị lộ trong git, quét `npm audit` production, chạy official `gitleaks/gitleaks-action`.
+- **docker:** Xác thực `docker compose config -q`, build thử Docker image backend & web (`push: false`).
+- **ci-success:** Tổng hợp kết quả các jobs thành gate duy nhất để cấu hình Branch Protection Rule.
+
+

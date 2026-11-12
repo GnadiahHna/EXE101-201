@@ -1,0 +1,2 @@
+node scripts/pre-push-check.mjs
+node scripts/ci-local.mjs

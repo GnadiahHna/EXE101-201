@@ -1,0 +1,191 @@
+name: ClinicBooking CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (Node 22)
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })' --quiet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4.2.0
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: 'backend/package-lock.json'
+
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend
+
+      - name: Run backend syntax check (lint)
+        run: npm run lint
+        working-directory: backend
+
+      - name: Run backend security tests & core suite
+        run: node --test tests/security-validate-config.test.js tests/security-payment-image.test.js tests/p0-foundation.test.js tests/uc-adm-01.test.js
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          MONGO_URI: mongodb://127.0.0.1:27017/clinic_ci_test
+          JWT_SECRET: ci_test_jwt_secret_min_32_characters_long_12345
+          JOIN_TOKEN_SECRET: ci_test_join_token_secret_min_32_chars_12345
+          VNP_HASH_SECRET: ci_test_vnpay_hash_secret_value_123456
+          VNP_TMN_CODE: TESTCODE
+          CORS_ORIGINS: http://localhost:5173
+
+  web:
+    name: Web Frontend (Node 22)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4.2.0
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: 'web/package-lock.json'
+
+      - name: Install web dependencies
+        run: npm ci
+        working-directory: web
+
+      - name: Run oxlint
+        run: npm run lint
+        working-directory: web
+
+      - name: Typecheck TypeScript
+        run: npx tsc --noEmit
+        working-directory: web
+
+      - name: Build web application
+        run: npm run build
+        working-directory: web
+
+      - name: Upload production build artifact
+        uses: actions/upload-artifact@v4.6.1
+        with:
+          name: web-dist
+          path: web/dist
+          retention-days: 7
+
+  security:
+    name: Security & Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4.2.0
+        with:
+          node-version: 22
+
+      - name: Verify no real .env files are tracked in git
+        run: |
+          echo "Checking for tracked .env files..."
+          TRACKED_ENVS=$(git ls-files | grep -E "(^|/)\.env(\..+)?$" | grep -v "\.env\.example$" || true)
+          if [ -n "$TRACKED_ENVS" ]; then
+            echo "❌ ERROR: Found tracked .env file(s) in repository:"
+            echo "$TRACKED_ENVS"
+            exit 1
+          fi
+          echo "✅ No sensitive .env files tracked."
+
+      - name: Audit backend production dependencies
+        run: npm audit --omit=dev --audit-level=high
+        working-directory: backend
+
+      - name: Audit web production dependencies
+        run: npm audit --omit=dev --audit-level=high
+        working-directory: web
+
+      - name: Run Gitleaks secret scan
+        uses: gitleaks/gitleaks-action@v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker:
+    name: Docker Compose & Image Builds
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.10.0
+
+      - name: Validate Docker Compose Configuration
+        run: docker compose config -q
+
+      - name: Test build Backend Docker image
+        uses: docker/build-push-action@v6.15.0
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: clinicbooking-backend:ci-test
+
+      - name: Test build Web Docker image
+        uses: docker/build-push-action@v6.15.0
+        with:
+          context: ./web
+          file: ./web/Dockerfile
+          push: false
+          tags: clinicbooking-web:ci-test
+
+  ci-success:
+    name: CI Quality Gate Passed
+    needs: [backend, web, security, docker]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all required jobs succeeded
+        run: |
+          BACKEND="${{ needs.backend.result }}"
+          WEB="${{ needs.web.result }}"
+          SECURITY="${{ needs.security.result }}"
+          DOCKER="${{ needs.docker.result }}"
+
+          echo "Job Results:"
+          echo "  - Backend:  $BACKEND"
+          echo "  - Web:      $WEB"
+          echo "  - Security: $SECURITY"
+          echo "  - Docker:   $DOCKER"
+
+          if [ "$BACKEND" = "success" ] && [ "$WEB" = "success" ] && [ "$SECURITY" = "success" ] && [ "$DOCKER" = "success" ]; then
+            echo "✅ All CI quality gates passed successfully!"
+            exit 0
+          else
+            echo "❌ One or more CI jobs failed."
+            exit 1
+          fi

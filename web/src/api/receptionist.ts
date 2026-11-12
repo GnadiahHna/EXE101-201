@@ -215,7 +215,7 @@ export async function fetchUserVouchersForReception(userId: number): Promise<Use
   return pickArray(res.data).map(normalizeUserVoucher);
 }
 
-export async function useVoucherForUserReception(voucherId: number, userId: number): Promise<UserVoucher> {
+export async function redeemVoucherForUserReception(voucherId: number, userId: number): Promise<UserVoucher> {
   const res = await http.post(`/vouchers/${voucherId}/use`, undefined, { params: { userId } });
   return normalizeUserVoucher(pickObject(res.data));
 }

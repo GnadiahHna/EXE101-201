@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const cors = require('cors');
 const env = require('./config/env');
 const routes = require('./routes');

@@ -16,7 +16,7 @@ import {
   fetchAllUserVouchersForReception,
   fetchUserVouchersForReception,
   searchUsersForReception,
-  useVoucherForUserReception,
+  redeemVoucherForUserReception,
 } from "../../api/receptionist";
 import {
   type UserVoucher,
@@ -141,7 +141,7 @@ export default function RecepVouchers() {
       return;
     }
     try {
-      const updated = await useVoucherForUserReception(userVoucherId, owner.userId);
+      const updated = await redeemVoucherForUserReception(userVoucherId, owner.userId);
       setAllVouchers((prev) =>
         prev.map((item) =>
           item.id === owner.id ? { ...item, used: updated.used } : item
