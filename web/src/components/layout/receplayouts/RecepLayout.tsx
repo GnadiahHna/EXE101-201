@@ -3,13 +3,13 @@ import RecepSidebar from "./RecepSidebar";
 import AdminTopbar from "../adminlayouts/AdminTopbar";
 import { Container } from "react-bootstrap";
 import "../../../styles/layouts.css";
+import { useAuth } from "../../../hooks/useAuth";
 
 export default function RecepLayout() {
-  const userName = JSON.parse(localStorage.getItem("user") || "{}").fullName || "Receptionist";
+  const { user, logout } = useAuth();
+  const userName = user?.fullName || "Receptionist";
   const onLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("user");
-    window.location.href = "/login";
+    logout();
   };
 
   return (

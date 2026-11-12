@@ -54,19 +54,26 @@ async function authenticate(req, _res, next) {
     throw new ApiError(401, 'Token xác thực không hợp lệ', 'INVALID_TOKEN');
   }
 
-  const rawUserId = decoded.userId !== undefined ? decoded.userId : decoded.sub;
-  if (rawUserId === undefined || rawUserId === null || String(rawUserId).trim() === '') {
+  const rawUserId = decoded.userId;
+  const numUserId = Number(rawUserId);
+  if (!Number.isSafeInteger(numUserId) || numUserId <= 0) {
     throw new ApiError(401, 'Thông tin định danh trong token không hợp lệ', 'MALFORMED_TOKEN_PAYLOAD');
   }
 
-  const query = buildUserQuery(rawUserId);
-  const user = await User.findOne(query);
+  const user = await User.findOne({ id: numUserId });
   if (!user) {
     throw new ApiError(401, 'Tài khoản không tồn tại', 'USER_NOT_FOUND');
   }
 
   if (!user.isEnable) {
     throw new ApiError(403, 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên', 'ACCOUNT_LOCKED');
+  }
+
+  // Token version verification: if user changed password, logged out from all devices, or was revoked
+  const expectedVersion = user.tokenVersion || 0;
+  const tokenVersion = decoded.tokenVersion || 0;
+  if (tokenVersion !== expectedVersion) {
+    throw new ApiError(401, 'Phiên đăng nhập đã bị vô hiệu hóa do thay đổi bảo mật', 'TOKEN_REVOKED');
   }
 
   req.user = user;
@@ -88,11 +95,12 @@ async function optionalAuthenticate(req, _res, next) {
 
   try {
     const decoded = verifyAccessToken(token);
-    const rawUserId = decoded.userId !== undefined ? decoded.userId : decoded.sub;
-    if (rawUserId !== undefined && rawUserId !== null) {
-      const query = buildUserQuery(rawUserId);
-      const user = await User.findOne(query);
-      if (user && user.isEnable) {
+    const numUserId = Number(decoded.userId);
+    if (Number.isSafeInteger(numUserId) && numUserId > 0) {
+      const user = await User.findOne({ id: numUserId });
+      const expectedVersion = user?.tokenVersion || 0;
+      const tokenVersion = decoded.tokenVersion || 0;
+      if (user && user.isEnable && tokenVersion === expectedVersion) {
         req.user = user;
         req.authPrincipal = {
           userId: String(user.id || user._id),

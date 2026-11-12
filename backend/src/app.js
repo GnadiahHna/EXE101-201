@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const env = require('./config/env');
 const routes = require('./routes');
 const oauthRoutes = require('./routes/oauth.routes');
@@ -7,6 +8,9 @@ const { notFound, errorHandler, getTraceId } = require('./middlewares/error.midd
 const { defaultRateLimiter } = require('./middlewares/rateLimiter.middleware');
 
 const app = express();
+
+// Trust proxy configured from env (loopback, linklocal, etc.), do NOT parse X-Forwarded-For manually
+app.set('trust proxy', env.trustProxy || true);
 
 // Native mobile apps send no Origin header, so requests without one are allowed.
 // `credentials: true` is required because Frontend OAuth2/logout uses `credentials: 'include'`.
@@ -45,6 +49,7 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.text({ type: 'text/plain' }));
+app.use(cookieParser(env.jwtSecret));
 
 // Trace ID correlation
 app.use((req, res, next) => {

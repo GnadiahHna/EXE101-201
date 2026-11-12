@@ -85,7 +85,31 @@ class ConfigService {
   }
 
   get jwtExpiresIn() {
-    return this.getString('JWT_EXPIRES_IN', '7d');
+    return this.getString('JWT_EXPIRES_IN', '15m');
+  }
+
+  get refreshTokenExpiresInDays() {
+    return this.getNumber('REFRESH_TOKEN_EXPIRES_IN_DAYS', 7);
+  }
+
+  get bcryptRounds() {
+    return this.getNumber('BCRYPT_ROUNDS', 12);
+  }
+
+  get trustProxy() {
+    return this.getString('TRUST_PROXY', 'loopback, linklocal, uniquelocal');
+  }
+
+  get redisUrl() {
+    return this.getString('REDIS_URL', '');
+  }
+
+  get requireEmailVerification() {
+    return this.getBoolean('REQUIRE_EMAIL_VERIFICATION', this.isProduction);
+  }
+
+  get oauthRedirectBaseUrl() {
+    return this.getString('OAUTH_REDIRECT_BASE_URL', this.getString('BACKEND_URL', 'http://localhost:3000'));
   }
 
   get corsOrigins() {

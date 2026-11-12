@@ -19,12 +19,14 @@ const UserEvent = require('./userEvent.model');
 const Voucher = require('./voucher.model');
 const UserVoucher = require('./userVoucher.model');
 const Feedback = require('./feedback.model');
+const RefreshToken = require('./refreshToken.model');
 
 module.exports = {
   Counter,
   getNextSequence,
   syncSequenceFloor,
   User,
+  RefreshToken,
   AuditLog,
   Specialty,
   Image,

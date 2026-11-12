@@ -82,11 +82,10 @@ export async function forgotPasswordApi(payload: ForgotPasswordPayload): Promise
   };
 }
 
-// Reset Password (dùng mật khẩu tạm từ email để đổi sang mật khẩu mới)
+// Reset Password (dùng token từ link email để đặt lại mật khẩu)
 export type ResetPasswordPayload = {
-  email: string;
-  temporaryPassword: string; // Mật khẩu random từ email
-  newPassword: string; // Mật khẩu mới patient muốn đặt
+  token: string;
+  newPassword: string;
   confirmPassword: string;
 };
 

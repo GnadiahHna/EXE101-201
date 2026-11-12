@@ -11,4 +11,7 @@ router.get('/authorization/facebook', oauthController.authorize('facebook'));
 router.get('/callback/google', oauthController.callback('google'));
 router.get('/callback/facebook', oauthController.callback('facebook'));
 
+// Exchange single-use code for tokens (no tokens in URL)
+router.post('/exchange', oauthController.exchangeToken);
+
 module.exports = router;

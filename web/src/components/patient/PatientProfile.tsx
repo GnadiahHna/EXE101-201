@@ -30,7 +30,7 @@ const emptyAccountForm = {
 };
 
 export default function PatientProfile() {
-  const { user, login } = useAuth();
+  const { user } = useAuth();
   const { showSuccess, showError } = useToast();
   const todayISO = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -340,12 +340,9 @@ export default function PatientProfile() {
       }
       await updateMyProfile(payload);
       const latest = await refreshProfile();
-      const token = localStorage.getItem("access_token");
-      if (token && latest) {
-        const stored = JSON.parse(localStorage.getItem("user") || "{}");
-        const merged = { ...stored, ...latest };
-        localStorage.setItem("user", JSON.stringify(merged));
-        login(merged, token);
+      if (latest && user) {
+        const merged = { ...user, ...latest };
+        sessionStorage.setItem("user_meta", JSON.stringify(merged));
       }
       setSuccessMessage("Cập nhật thông tin tài khoản thành công");
       setShowAccountModal(false);

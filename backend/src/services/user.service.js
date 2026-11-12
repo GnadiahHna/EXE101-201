@@ -25,7 +25,8 @@ const {
   Image,
 } = require('../models');
 const { resolveSpecialty } = require('./specialty.service');
-const { BCRYPT_ROUNDS, validatePasswordStrength } = require('./auth.service');
+const { validatePasswordStrength } = require('../utils/passwordSecurity');
+const env = require('../config/env');
 const { recordAudit, buildAuditDiff, sanitizeSnapshot } = require('./audit.service');
 
 /**
@@ -285,7 +286,7 @@ async function createUser(actor, payload, req) {
     fullName,
     email,
     phoneNumber: normalizePhoneNumber(payload?.phoneNumber),
-    password: await bcrypt.hash(payload.password, BCRYPT_ROUNDS),
+    password: await bcrypt.hash(payload.password, env.bcryptRounds),
     gender: normalizeGender(payload?.gender),
     userType,
     isEnable:
@@ -294,6 +295,8 @@ async function createUser(actor, payload, req) {
         : payload?.isEnabled !== undefined
         ? Boolean(payload.isEnabled)
         : true,
+    emailVerified: true,
+    tokenVersion: 0,
     authProvider: AUTH_PROVIDERS.LOCAL,
   };
 
@@ -396,7 +399,8 @@ async function updateUser(actor, targetId, payload, { expectedCurrentRole = null
 
   if (payload?.password !== undefined && payload.password !== '') {
     validatePasswordStrength(payload.password);
-    user.password = await bcrypt.hash(payload.password, BCRYPT_ROUNDS);
+    user.password = await bcrypt.hash(payload.password, env.bcryptRounds);
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
   }
 
   // Handle status update (isEnable / isEnabled)

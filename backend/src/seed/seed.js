@@ -327,6 +327,10 @@ async function runSeed() {
           email: u.email.toLowerCase(),
           password: passwordHash,
           isEnable: true,
+          emailVerified: true,
+          tokenVersion: 0,
+          failedLoginCount: 0,
+          lockUntil: null,
           authProvider: AUTH_PROVIDERS.LOCAL,
         });
       } else {
@@ -338,6 +342,7 @@ async function runSeed() {
               email: u.email.toLowerCase(),
               password: passwordHash,
               isEnable: true,
+              emailVerified: true,
               authProvider: AUTH_PROVIDERS.LOCAL,
             },
           },

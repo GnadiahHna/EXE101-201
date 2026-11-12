@@ -4,15 +4,14 @@ import { Outlet } from "react-router-dom";
 import AdminSidebar from "./AdminSidebar";
 import AdminTopbar from "./AdminTopbar";
 import "../../../styles/layouts.css";
+import { useAuth } from "../../../hooks/useAuth";
 
 export default function AdminLayout() {
-  const userName =
-    JSON.parse(localStorage.getItem("user") || "{}")?.fullName || "Administrator";
+  const { user, logout } = useAuth();
+  const userName = user?.fullName || "Administrator";
 
   const onLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("user");
-    window.location.href = "/login";
+    logout();
   };
 
   return (

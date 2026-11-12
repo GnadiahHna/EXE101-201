@@ -18,11 +18,11 @@ export default function ForgotPassword() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    
+
     try {
       await forgotPasswordApi({ email });
       setSuccess(true);
-      showSuccess('Email đã được gửi thành công! Vui lòng kiểm tra hộp thư của bạn.');
+      showSuccess('Nếu email tồn tại, đường link đặt lại mật khẩu đã được gửi đến hộp thư của bạn.');
     } catch (err: unknown) {
       setError(getErrorMessage(err) || 'Không thể gửi email. Vui lòng thử lại.');
     } finally {
@@ -35,10 +35,11 @@ export default function ForgotPassword() {
       <section className="login-page">
         <div className="login-card">
           <div className="success-message">
-            <h2>Email đã được gửi!</h2>
-            <p>Chúng tôi đã gửi mật khẩu mới đến email <strong>{email}</strong>.</p>
-            <p>Vui lòng kiểm tra hộp thư của bạn và sử dụng mật khẩu tạm thời để đăng nhập.</p>
-            <p>Sau khi đăng nhập, bạn sẽ được chuyển đến trang thay đổi mật khẩu.</p>
+            <h2>Kiểm tra hộp thư của bạn</h2>
+            <p>
+              Nếu địa chỉ <strong>{email}</strong> tồn tại trong hệ thống, chúng tôi đã gửi một liên kết an toàn để đặt lại mật khẩu.
+            </p>
+            <p>Liên kết có hiệu lực trong vòng <strong>15 phút</strong> và chỉ sử dụng được một lần.</p>
             <div style={{ marginTop: '20px' }}>
               <Link to="/login" className="btn-auth" style={{ display: 'inline-block', textDecoration: 'none' }}>
                 Quay lại đăng nhập
@@ -53,39 +54,33 @@ export default function ForgotPassword() {
   return (
     <section className="login-page">
       <div className="login-card">
-        <h1 className="register-title">Quên mật khẩu</h1>
-        <p style={{ textAlign: 'center', color: '#666', marginBottom: '20px' }}>
-          Nhập email của bạn để nhận mật khẩu mới
-        </p>
+        <div className="login-header">
+          <h2>Quên mật khẩu</h2>
+          <p>Nhập email tài khoản của bạn để nhận liên kết đặt lại mật khẩu.</p>
+        </div>
+
+        {error && <div className="error-message" role="alert">{error}</div>}
 
         <form onSubmit={onSubmit} className="login-form">
           <Input
-            id="email"
-            name="email"
             label="Email"
             type="email"
+            placeholder="example@domain.com"
             value={email}
-            placeholder="you@example.com"
             onChange={(e) => setEmail(e.target.value)}
             required
+            autoFocus
           />
 
-          {error && (
-            <div className="error-block">
-              <p>{error}</p>
-            </div>
-          )}
-
-          <Button type="submit" disabled={loading} className="btn-auth">
-            {loading ? 'Đang gửi…' : 'Gửi mật khẩu mới'}
+          <Button type="submit" variant="primary" disabled={loading} className="btn-auth">
+            {loading ? 'Đang gửi...' : 'Gửi liên kết đặt lại mật khẩu'}
           </Button>
 
-          <p className="login-register">
-            Nhớ mật khẩu? <Link to="/login">Đăng nhập</Link>
-          </p>
+          <div className="form-footer">
+            <Link to="/login" className="link-secondary">Quay lại đăng nhập</Link>
+          </div>
         </form>
       </div>
     </section>
   );
 }
-

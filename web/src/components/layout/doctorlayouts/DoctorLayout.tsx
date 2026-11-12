@@ -3,13 +3,13 @@ import DoctorSidebar from "./DoctorSidebar";
 import AdminTopbar from "../adminlayouts/AdminTopbar";
 import { Container } from "react-bootstrap";
 import "../../../styles/layouts.css";
+import { useAuth } from "../../../hooks/useAuth";
 
 export default function DoctorLayout() {
-  const userName = JSON.parse(localStorage.getItem("user") || "{}").fullName || "Doctor";
+  const { user, logout } = useAuth();
+  const userName = user?.fullName || "Doctor";
   const onLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("user");
-    window.location.href = "/login";
+    logout();
   };
 
   return (

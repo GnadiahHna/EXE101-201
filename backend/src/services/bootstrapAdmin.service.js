@@ -313,9 +313,8 @@ function validateAdminRegistrationInput(payload = {}) {
 
   const email = normalizeEmail(payload?.email);
   const password = payload?.password;
-  if (typeof password !== 'string' || password.length < 6) {
-    throw new ApiError(400, 'Mật khẩu phải có ít nhất 6 ký tự');
-  }
+  const { validatePasswordStrength } = require('../utils/passwordSecurity');
+  validatePasswordStrength(password, 'Mật khẩu quản trị viên');
 
   const phoneNumber = normalizePhoneNumber(payload?.phoneNumber);
   const gender = normalizeGender(payload?.gender);

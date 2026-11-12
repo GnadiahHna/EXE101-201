@@ -6,6 +6,7 @@ import { fetchDoctorsBySpecialty, fetchDoctorById, type Doctor } from "../../api
 import { http } from "../../api/http";
 import { fetchShiftsByDoctorAndDate } from "../../api/shift";
 import Banner from "../../components/home/Banner";
+import { useAuth } from "../../hooks/useAuth";
 
 type Gender = "Male" | "Female" | "Other";
 
@@ -172,6 +173,8 @@ export default function Appointment() {
   const fieldErrors = getFieldErrors();
   const hasAnyError = Object.keys(fieldErrors).length > 0;
 
+  const { isAuthenticated, user } = useAuth();
+
   function canProceedStep2(): boolean {
     return !!date && !!specialtyId && !!doctorId && !!selectedShift;
   }
@@ -180,10 +183,8 @@ export default function Appointment() {
     if (!canProceedStep2()) {
       return;
     }
-    const token = localStorage.getItem("access_token");
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const role = user?.userType;
-    if (!token || (role !== "Patient" && role !== "Admin")) {
+    const role = user?.userType || user?.role;
+    if (!isAuthenticated || (role !== "Patient" && role !== "Admin")) {
       navigate("/login", { replace: false, state: { from: "/appointment" } as any });
       return;
     }

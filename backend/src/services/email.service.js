@@ -184,10 +184,10 @@ async function sendAppointmentConfirmationEmail({
 }
 
 /**
- * Send Temporary Password Email for Forgot Password flow
+ * Send Password Reset Link Email for Forgot Password flow
  */
-async function sendTemporaryPasswordEmail({ to, fullName, temporaryPassword }) {
-  const subject = '[Nova Clinic] Mật khẩu tạm thời cho tài khoản của bạn';
+async function sendPasswordResetEmail({ to, fullName, resetUrl }) {
+  const subject = '[Nova Clinic] Yêu cầu đặt lại mật khẩu tài khoản';
   const html = `
 <!DOCTYPE html>
 <html>
@@ -202,10 +202,10 @@ async function sendTemporaryPasswordEmail({ to, fullName, temporaryPassword }) {
     .content { padding: 28px 24px; }
     .greeting { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #111827; }
     .desc { font-size: 14px; line-height: 1.6; color: #4b5563; margin-bottom: 20px; }
-    .temp-box { background: #f0fdf4; border: 2px dashed #86efac; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 24px; }
-    .temp-label { font-size: 13px; color: #166534; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-    .temp-code { font-family: 'Courier New', Courier, monospace; font-size: 28px; font-weight: 700; color: #0e82fd; margin: 10px 0; letter-spacing: 2px; }
+    .btn-container { text-align: center; margin: 25px 0; }
+    .btn { display: inline-block; background: #0e82fd; color: #ffffff !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; }
     .notice { font-size: 13px; color: #64748b; line-height: 1.5; margin-bottom: 20px; }
+    .url-fallback { word-break: break-all; font-size: 12px; color: #0e82fd; background: #f8fafc; padding: 10px; border-radius: 6px; }
     .footer { text-align: center; font-size: 12px; color: #94a3b8; padding: 20px 24px 28px; border-top: 1px solid #f1f5f9; }
   </style>
 </head>
@@ -213,23 +213,23 @@ async function sendTemporaryPasswordEmail({ to, fullName, temporaryPassword }) {
   <div class="card">
     <div class="header">
       <h1>PHÒNG KHÁM NOVA CLINIC</h1>
-      <p>Cấp lại mật khẩu tài khoản</p>
+      <p>Đặt lại mật khẩu tài khoản</p>
     </div>
     <div class="content">
       <div class="greeting">Xin chào ${fullName || 'Quý khách'},</div>
       <div class="desc">
-        Chúng tôi đã nhận được yêu cầu khôi phục mật khẩu cho tài khoản đăng ký với email này. Dưới đây là mật khẩu tạm thời của bạn:
+        Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu cho tài khoản đăng ký với email này. Vui lòng bấm vào nút bên dưới để tiến hành thiết lập mật khẩu mới:
       </div>
 
-      <div class="temp-box">
-        <div class="temp-label">Mật khẩu tạm thời</div>
-        <div class="temp-code">${temporaryPassword}</div>
-        <span style="font-size: 12px; color: #15803d;">(Có hiệu lực trong vòng 15 phút)</span>
+      <div class="btn-container">
+        <a href="${resetUrl}" class="btn" target="_blank">Đặt lại mật khẩu</a>
       </div>
 
       <div class="notice">
-        • Bạn có thể dùng mật khẩu tạm thời này để đăng nhập hoặc truy cập trang đặt lại mật khẩu để đổi sang mật khẩu mới an toàn hơn.<br>
-        • Nếu bạn không yêu cầu khôi phục mật khẩu, vui lòng bỏ qua email này hoặc liên hệ hotline phòng khám để được hỗ trợ.
+        • Đường liên kết này có hiệu lực trong vòng <strong>15 phút</strong> và chỉ sử dụng được <strong>một lần</strong>.<br>
+        • Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này hoặc liên hệ hotline phòng khám để được hỗ trợ bảo mật.<br><br>
+        Nếu nút trên không bấm được, bạn có thể copy và dán liên kết sau vào trình duyệt:<br>
+        <div class="url-fallback">${resetUrl}</div>
       </div>
     </div>
     <div class="footer">
@@ -252,26 +252,114 @@ async function sendTemporaryPasswordEmail({ to, fullName, temporaryPassword }) {
         subject,
         html,
       });
-      console.log(`[EmailService] Forgot password email sent via SMTP to ${to} (MessageId: ${info.messageId})`);
+      console.log(`[EmailService] Password reset email sent via SMTP to ${to} (MessageId: ${info.messageId})`);
       return { success: true, mode: 'smtp', messageId: info.messageId };
     } catch (err) {
-      console.error(`[EmailService] Failed to send forgot password email via SMTP:`, err.message);
+      console.error(`[EmailService] Failed to send password reset email via SMTP:`, err.message);
     }
   }
 
   // Fallback Dev / Mock logger
-  console.log('\n=================== [EMAIL SERVICE - FORGOT PASSWORD] ===================');
+  console.log('\n=================== [EMAIL SERVICE - PASSWORD RESET] ===================');
   console.log(`To: ${to}`);
   console.log(`Subject: ${subject}`);
-  console.log(`Temporary Password: ${temporaryPassword}`);
+  console.log(`Reset URL: ${resetUrl}`);
   console.log('Status: Rendered and dispatched successfully (Mock/Dev Mode)');
-  console.log('=========================================================================\n');
+  console.log('========================================================================\n');
+
+  return { success: true, mode: 'mock' };
+}
+
+/**
+ * Send Email Verification link
+ */
+async function sendEmailVerificationEmail({ to, fullName, verifyUrl }) {
+  const subject = '[Nova Clinic] Xác minh địa chỉ email đăng ký';
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7fb; margin: 0; padding: 20px; color: #333; }
+    .card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+    .header { background: linear-gradient(135deg, #0e82fd 0%, #0056b3 100%); color: #ffffff; padding: 28px 24px; text-align: center; }
+    .header h1 { margin: 0; font-size: 22px; font-weight: 700; }
+    .header p { margin: 6px 0 0; font-size: 14px; opacity: 0.9; }
+    .content { padding: 28px 24px; }
+    .greeting { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #111827; }
+    .desc { font-size: 14px; line-height: 1.6; color: #4b5563; margin-bottom: 20px; }
+    .btn-container { text-align: center; margin: 25px 0; }
+    .btn { display: inline-block; background: #10b981; color: #ffffff !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; }
+    .notice { font-size: 13px; color: #64748b; line-height: 1.5; margin-bottom: 20px; }
+    .url-fallback { word-break: break-all; font-size: 12px; color: #0e82fd; background: #f8fafc; padding: 10px; border-radius: 6px; }
+    .footer { text-align: center; font-size: 12px; color: #94a3b8; padding: 20px 24px 28px; border-top: 1px solid #f1f5f9; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h1>PHÒNG KHÁM NOVA CLINIC</h1>
+      <p>Xác minh tài khoản người dùng</p>
+    </div>
+    <div class="content">
+      <div class="greeting">Xin chào ${fullName || 'Quý khách'},</div>
+      <div class="desc">
+        Cảm ơn bạn đã đăng ký tài khoản tại Nova Clinic. Vui lòng bấm vào nút bên dưới để xác minh địa chỉ email của bạn:
+      </div>
+
+      <div class="btn-container">
+        <a href="${verifyUrl}" class="btn" target="_blank">Xác minh Email</a>
+      </div>
+
+      <div class="notice">
+        • Đường liên kết này có hiệu lực trong vòng <strong>24 giờ</strong>.<br>
+        • Nếu bạn không thực hiện đăng ký tài khoản tại Nova Clinic, vui lòng bỏ qua email này.<br><br>
+        Nếu nút trên không bấm được, bạn có thể copy và dán liên kết sau vào trình duyệt:<br>
+        <div class="url-fallback">${verifyUrl}</div>
+      </div>
+    </div>
+    <div class="footer">
+      <p>Nova Clinic • 123 Nguyễn Văn Linh, Hải Châu, TP. Đà Nẵng</p>
+      <p>Hotline: 0901 234 567 • Email: lienhe@clinicbooking.vn</p>
+    </div>
+  </div>
+</body>
+</html>
+  `;
+
+  const activeTransporter = getTransporter();
+
+  if (activeTransporter) {
+    try {
+      const from = process.env.SMTP_FROM || env.smtpFrom || '"Nova Clinic" <no-reply@clinicbooking.com>';
+      const info = await activeTransporter.sendMail({
+        from,
+        to,
+        subject,
+        html,
+      });
+      console.log(`[EmailService] Email verification sent via SMTP to ${to} (MessageId: ${info.messageId})`);
+      return { success: true, mode: 'smtp', messageId: info.messageId };
+    } catch (err) {
+      console.error(`[EmailService] Failed to send email verification via SMTP:`, err.message);
+    }
+  }
+
+  // Fallback Dev / Mock logger
+  console.log('\n=================== [EMAIL SERVICE - EMAIL VERIFICATION] ===================');
+  console.log(`To: ${to}`);
+  console.log(`Subject: ${subject}`);
+  console.log(`Verify URL: ${verifyUrl}`);
+  console.log('Status: Rendered and dispatched successfully (Mock/Dev Mode)');
+  console.log('============================================================================\n');
 
   return { success: true, mode: 'mock' };
 }
 
 module.exports = {
   sendAppointmentConfirmationEmail,
-  sendTemporaryPasswordEmail,
+  sendPasswordResetEmail,
+  sendEmailVerificationEmail,
   buildAppointmentHtml,
 };

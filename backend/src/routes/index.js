@@ -48,6 +48,10 @@ if (fs.existsSync(featuresDir)) {
 
 // --- 2. Core & Legacy Routers ---
 router.get('/health', getHealth);
+
+// Mount OAuth2 under /api/oauth2 as well as /oauth2
+router.use('/oauth2', require('./oauth.routes'));
+
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/admin/analytics', adminAnalyticsRoutes);

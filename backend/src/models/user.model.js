@@ -16,11 +16,42 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    temporaryPassword: {
+    // Password reset token hash (SHA-256)
+    resetPasswordTokenHash: {
       type: String,
       default: null,
+      index: true,
     },
-    temporaryPasswordExpiresAt: {
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
+    },
+    // Email verification
+    emailVerified: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    emailVerificationTokenHash: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    emailVerificationExpires: {
+      type: Date,
+      default: null,
+    },
+    // Token revocation and invalidation version
+    tokenVersion: {
+      type: Number,
+      default: 0,
+    },
+    // Account lockout protection (brute-force defense)
+    failedLoginCount: {
+      type: Number,
+      default: 0,
+    },
+    lockUntil: {
       type: Date,
       default: null,
     },
@@ -127,7 +158,15 @@ userSchema.index({ createdAt: 1, userType: 1 });
 
 userSchema.plugin(baseSchemaPlugin, {
   sequenceName: 'users',
-  hiddenFields: ['password', 'temporaryPassword', 'temporaryPasswordExpiresAt'],
+  hiddenFields: [
+    'password',
+    'resetPasswordTokenHash',
+    'resetPasswordExpires',
+    'emailVerificationTokenHash',
+    'emailVerificationExpires',
+    'temporaryPassword',
+    'temporaryPasswordExpiresAt',
+  ],
   extraTransform: (_doc, ret) => {
     // Frontend reads both `isEnabled` and `isEnable` across admin.ts & RecepDashboard.tsx
     ret.isEnabled = Boolean(ret.isEnable);
