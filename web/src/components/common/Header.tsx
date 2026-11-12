@@ -74,7 +74,6 @@ export default function Header(){
           <NavLink to="/doctors" end className={linkClass}>Bác sĩ</NavLink>
           <NavLink to="/services" end className={linkClass}>Dịch vụ</NavLink>
           <NavLink to="/about" end className={linkClass}>Giới thiệu</NavLink>
-          <NavLink to="/chatbot" end className={linkClass}>Trợ lý AI</NavLink>
         </nav>
 
         {/* Desktop CTA buttons */}
@@ -146,9 +145,6 @@ export default function Header(){
           </NavLink>
           <NavLink to="/about" end className={linkClass} onClick={() => setMenuOpen(false)}>
             Giới thiệu
-          </NavLink>
-          <NavLink to="/chatbot" end className={linkClass} onClick={() => setMenuOpen(false)}>
-            Trợ lý AI
           </NavLink>
         </nav>
 
