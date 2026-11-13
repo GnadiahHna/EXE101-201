@@ -36,8 +36,13 @@ function sanitizeAppointmentItem(appt, patientMap = new Map(), doctorMap = new M
 
   // Patient name derivation (from snapshot patients or user fullName)
   let patientName = '—';
-  if (Array.isArray(appt.patients) && appt.patients.length > 0 && appt.patients[0].fullName) {
-    patientName = appt.patients[0].fullName;
+  const patientsList = Array.isArray(appt.patients) ? appt.patients : [];
+  if (patientsList.length > 0 && patientsList[0]?.fullName) {
+    if (patientsList.length > 1) {
+      patientName = patientsList.map((p) => p.fullName).join(', ');
+    } else {
+      patientName = patientsList[0].fullName;
+    }
   } else if (patient?.fullName) {
     patientName = patient.fullName;
   }
@@ -60,6 +65,8 @@ function sanitizeAppointmentItem(appt, patientMap = new Map(), doctorMap = new M
     checkedInAt: appt.checkedInAt ? appt.checkedInAt.toISOString() : null,
     confirmedAt: appt.confirmedAt ? appt.confirmedAt.toISOString() : null,
     createdAt: appt.createdAt ? appt.createdAt.toISOString() : null,
+    slotIds: Array.isArray(appt.slotIds) ? appt.slotIds : [],
+    patients: patientsList,
   };
 }
 

@@ -440,7 +440,32 @@ export default function RecepAppointment() {
               <Detail label="Ngày khám">
                 {viewItem.appointmentDate} {viewItem.appointmentTime}
               </Detail>
-              <Detail label="Bệnh nhân">{viewItem.patientName}</Detail>
+              <Detail label="Bệnh nhân">
+                <div>
+                  <strong>{viewItem.patientName}</strong>
+                  {viewItem.patients && viewItem.patients.length > 1 && (
+                    <span className="badge bg-primary-subtle text-primary ms-2">
+                      {viewItem.patients.length} người khám
+                    </span>
+                  )}
+                </div>
+              </Detail>
+              {viewItem.patients && viewItem.patients.length > 1 && (
+                <div className="col-12 mt-2 p-2 rounded bg-light border">
+                  <div className="small fw-bold text-secondary mb-1">Danh sách người khám:</div>
+                  <div className="d-flex flex-column gap-1">
+                    {viewItem.patients.map((p: any, idx: number) => (
+                      <div key={idx} className="small d-flex justify-content-between align-items-center py-1 border-bottom border-light">
+                        <span>
+                          <strong>{idx + 1}. {p.fullName}</strong> ({p.gender === 'Male' ? 'Nam' : p.gender === 'Female' ? 'Nữ' : 'Khác'})
+                          {p.relationship ? ` - Mối quan hệ: ${p.relationship}` : ''}
+                        </span>
+                        <span className="text-muted">{p.phoneNumber || ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <Detail label="Bác sĩ">{viewItem.doctorName}</Detail>
               <Detail label="Chuyên khoa">{viewItem.specialtyName}</Detail>
               <Detail label="Hình thức">

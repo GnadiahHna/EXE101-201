@@ -6,13 +6,38 @@ const { clock } = require('./clock.service');
 const STATUSES = new Set(['CANCELLED', 'CHECKED_IN', 'COMPLETED', 'CONFIRMED', 'EXPIRED', 'IN_PROGRESS', 'NO_SHOW', 'PENDING_CONFIRMATION', 'PENDING_PAYMENT', 'RESCHEDULED']);
 const idOf = (value) => { const id = Number(value); if (!Number.isSafeInteger(id) || id < 1) throw new ApiError(400, 'Invalid numeric ID'); return id; };
 const validDate = (date) => { if (date === undefined) return; if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`)) || new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) throw new ApiError(400, 'date must be a valid YYYY-MM-DD date'); return date; };
-const serialize = (appointment, doctorName, fallbackName) => ({
-  id: appointment.id, appointmentNo: appointment.appointmentNo, appointmentDate: appointment.appointmentDate,
-  appointmentTime: appointment.appointmentTime, createdAt: appointment.createdAt?.toISOString ? appointment.createdAt.toISOString() : (appointment.createdAt ? new Date(appointment.createdAt).toISOString() : undefined), status: appointment.status,
-  patientName: appointment.patients?.[0]?.fullName || fallbackName || appointment.patientName || 'N/A', patientId: appointment.patientId, doctorName,
-  doctorId: appointment.doctorId, shiftId: appointment.shiftId, specialtyId: appointment.specialtyId,
-  reason: appointment.reason || undefined, type: appointment.type,
-});
+const serialize = (appointment, doctorName, fallbackName) => {
+  const patientsList = Array.isArray(appointment.patients) ? appointment.patients : [];
+  let patientName = fallbackName || appointment.patientName || 'N/A';
+  if (patientsList.length > 0 && patientsList[0]?.fullName) {
+    if (patientsList.length > 1) {
+      patientName = patientsList.map((p) => p.fullName).join(', ');
+    } else {
+      patientName = patientsList[0].fullName;
+    }
+  }
+
+  return {
+    id: appointment.id,
+    appointmentNo: appointment.appointmentNo,
+    appointmentDate: appointment.appointmentDate,
+    appointmentTime: appointment.appointmentTime,
+    createdAt: appointment.createdAt?.toISOString ? appointment.createdAt.toISOString() : (appointment.createdAt ? new Date(appointment.createdAt).toISOString() : undefined),
+    status: appointment.status,
+    patientName,
+    patientId: appointment.patientId,
+    doctorName,
+    doctorId: appointment.doctorId,
+    shiftId: appointment.shiftId,
+    specialtyId: appointment.specialtyId,
+    reason: appointment.reason || undefined,
+    type: appointment.type,
+    slotIds: Array.isArray(appointment.slotIds) ? appointment.slotIds : [],
+    patients: patientsList,
+    intake: appointment.intake || null,
+    intakeSummary: appointment.intakeSummary || null,
+  };
+};
 const getOwned = (doctor, appointmentId) => Appointment.findOne({ id: idOf(appointmentId), doctorId: doctor.id });
 
 const getMyByStatus = async (doctor, status, date) => {

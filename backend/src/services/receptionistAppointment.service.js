@@ -693,34 +693,54 @@ async function rescheduleAppointmentByStaff(
     throw new ApiError(409, 'Ca trực mới phải thuộc cùng bác sĩ của lịch hẹn hiện tại', 'DOCTOR_MISMATCH');
   }
 
-  // 7. Find candidate slot in new shift
+  // 7. Find candidate slots in new shift (cần đủ số slot cho tất cả người khám)
   const slots = Array.isArray(newShift.slots) ? newShift.slots : [];
-  let candidateSlot = null;
+  const neededSlotCount = Math.max(
+    1,
+    Array.isArray(oldAppointment.patients) && oldAppointment.patients.length > 0
+      ? oldAppointment.patients.length
+      : Array.isArray(oldAppointment.slotIds)
+      ? oldAppointment.slotIds.length
+      : 1
+  );
+
+  let candidateSlots = [];
   if (newSlotId !== undefined && newSlotId !== null && String(newSlotId).trim() !== '') {
     const targetSlotId = Number(newSlotId);
-    candidateSlot = slots.find((s) => s.id === targetSlotId);
-    if (!candidateSlot) {
+    const startIdx = slots.findIndex((s) => s.id === targetSlotId);
+    if (startIdx === -1) {
       throw new ApiError(404, `Không tìm thấy slot ${newSlotId} trong ca trực mới`, 'SLOT_NOT_FOUND');
     }
-    if (candidateSlot.status !== 'AVAILABLE') {
-      throw new ApiError(409, 'Slot khám đã được người khác đặt hoặc không khả dụng', 'SLOT_ALREADY_BOOKED');
+    candidateSlots = slots.slice(startIdx, startIdx + neededSlotCount);
+    if (candidateSlots.length < neededSlotCount || candidateSlots.some((s) => s.status !== 'AVAILABLE')) {
+      throw new ApiError(409, `Không đủ ${neededSlotCount} slot liên tiếp khả dụng bắt đầu từ slot đã chọn`, 'SLOT_ALREADY_BOOKED');
     }
   } else {
-    // Pick first available slot in new shift
-    candidateSlot = slots.find((s) => s.status === 'AVAILABLE');
-    if (!candidateSlot) {
-      throw new ApiError(409, 'Ca trực mới không còn slot trống nào khả dụng', 'NO_AVAILABLE_SLOTS');
+    // Tìm cụm slots liên tiếp đủ số lượng cần
+    for (let i = 0; i <= slots.length - neededSlotCount; i += 1) {
+      const windowSlots = slots.slice(i, i + neededSlotCount);
+      if (windowSlots.every((s) => s.status === 'AVAILABLE')) {
+        candidateSlots = windowSlots;
+        break;
+      }
+    }
+    if (candidateSlots.length < neededSlotCount) {
+      throw new ApiError(409, `Ca trực mới không còn đủ ${neededSlotCount} slot trống liên tiếp khả dụng`, 'NO_AVAILABLE_SLOTS');
     }
   }
 
-  // 8. Atomic conditional reservation on new slot using appointmentSlotService
+  // 8. Atomic conditional reservation on new slots using holdSlot
   const crypto = require('crypto');
   const tempHoldRef = `HOLD_RESCHED_${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
-  await holdSlot({
-    shiftId: newShift.id,
-    slotId: candidateSlot.id,
-    bookingRef: tempHoldRef,
-  });
+  const candidateSlotIds = candidateSlots.map((s) => s.id);
+
+  for (const s of candidateSlots) {
+    await holdSlot({
+      shiftId: newShift.id,
+      slotId: s.id,
+      bookingRef: tempHoldRef,
+    });
+  }
 
   // Step 9: Compensation wrapper for appointment creation & state updates
   let newAppointment = null;
@@ -747,9 +767,9 @@ async function rescheduleAppointmentByStaff(
       doctorId: oldAppointment.doctorId,
       specialtyId: oldAppointment.specialtyId,
       shiftId: newShift.id,
-      slotIds: [candidateSlot.id],
+      slotIds: candidateSlotIds,
       appointmentDate: newShift.date,
-      appointmentTime: candidateSlot.startTime,
+      appointmentTime: candidateSlots[0].startTime,
       type: oldAppointment.type || 'OFFLINE',
       status: newStatus,
       reason: cleanReason,
@@ -759,17 +779,16 @@ async function rescheduleAppointmentByStaff(
       confirmedAt: newStatus === APPOINTMENT_STATUSES.CONFIRMED ? clock.now() : null,
     });
 
-    // 9.2 Bind new appointmentNo to the newly reserved slot
+    // 9.2 Bind new appointmentNo to all newly reserved slots
     await DoctorShift.updateOne(
-      {
-        id: newShift.id,
-        'slots.id': candidateSlot.id,
-        'slots.bookingRef': tempHoldRef,
-      },
+      { id: newShift.id },
       {
         $set: {
-          'slots.$.bookingRef': newAppointment.appointmentNo,
+          'slots.$[elem].bookingRef': newAppointment.appointmentNo,
         },
+      },
+      {
+        arrayFilters: [{ 'elem.id': { $in: candidateSlotIds }, 'elem.bookingRef': tempHoldRef }],
       },
     );
 
