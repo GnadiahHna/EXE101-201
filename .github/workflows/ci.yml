@@ -148,7 +148,7 @@ jobs:
         run: docker compose config -q
 
       - name: Test build Backend Docker image
-        uses: docker/build-push-action@v6.15.0
+        uses: docker/build-push-action@v7.4.0
         with:
           context: ./backend
           file: ./backend/Dockerfile
@@ -156,7 +156,7 @@ jobs:
           tags: clinicbooking-backend:ci-test
 
       - name: Test build Web Docker image
-        uses: docker/build-push-action@v6.15.0
+        uses: docker/build-push-action@v7.4.0
         with:
           context: ./web
           file: ./web/Dockerfile
