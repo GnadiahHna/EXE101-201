@@ -54,6 +54,7 @@ export default function DoctorAppointment() {
   const [addedPrescription, setAddedPrescription] = useState<boolean>(false);
   const [prescriptions, setPrescriptions] = useState<PrescriptionType[]>([]);
   const [loadingSummary, setLoadingSummary] = useState<boolean>(false);
+  const [showRawIntake, setShowRawIntake] = useState<boolean>(false);
   const [intakeSummary, setIntakeSummary] = useState<{ summary?: string; bullets?: string[]; verifiedDisclaimer?: string; source?: string; generatedAt?: string } | null>(null);
 
   // Reschedule Modal
@@ -425,6 +426,7 @@ export default function DoctorAppointment() {
                     onClick={async () => {
                       setAddedPrescription(false);
                       setIntakeSummary(null);
+                      setShowRawIntake(false);
                       setViewItem(a);
                       // Check if appointment already has prescription
                       const presRes = await getPrescriptionsByAppointment(a.id);
@@ -497,24 +499,30 @@ export default function DoctorAppointment() {
               {viewItem.reason && <Detail label="Lý do khám">{viewItem.reason}</Detail>}
 
               {/* Patient Intake Information Card */}
-              <div className="mt-3 p-3 border rounded bg-light">
-                <div className="alert alert-warning py-1 px-2 mb-2 small text-dark d-flex align-items-center">
-                  <span className="me-2">⚠️</span>
-                  <span><strong>Chế độ thử nghiệm:</strong> Bản demo học thuật, dùng dữ liệu giả, không thay thế bác sĩ.</span>
-                </div>
-                <div className="d-flex justify-content-between align-items-center mb-2">
-                  <h6 className="mb-0 fw-bold">Thông tin Tiền Khám (Medical Intake):</h6>
-                  <div className="d-flex gap-2">
+              <div className="mt-3 p-3 border rounded-3 bg-light shadow-sm">
+                <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                  <div className="d-flex align-items-center gap-2">
+                    <h6 className="mb-0 fw-bold text-dark">📋 Thông tin Tiền khám</h6>
+                    {/* Cảnh báo dị ứng nổi bật ngay tiêu đề nếu có */}
+                    {((viewItem as any).intake?.allergies && (viewItem as any).intake.allergies.length > 0) && (
+                      <span className="badge bg-danger-subtle text-danger border border-danger small px-2 py-1">
+                        ⚠️ Dị ứng: {Array.isArray((viewItem as any).intake.allergies) ? (viewItem as any).intake.allergies.join(", ") : (viewItem as any).intake.allergies}
+                      </span>
+                    )}
+                  </div>
+                  <div className="d-flex align-items-center gap-2">
                     <Button
                       size="sm"
-                      variant="outline-info"
+                      variant={intakeSummary ? "outline-secondary" : "primary"}
                       disabled={loadingSummary}
+                      className="py-1 px-2.5 fw-medium d-flex align-items-center gap-1"
                       onClick={async () => {
                         if (!viewItem) return;
                         setLoadingSummary(true);
                         try {
+                          const regenerateParam = intakeSummary ? "?regenerate=true" : "";
                           const res = await (await import("../../api/http")).http.post(
-                            `/doctor/appointments/${viewItem.id}/intake-summary`
+                            `/doctor/appointments/${viewItem.id}/intake-summary${regenerateParam}`
                           );
                           setIntakeSummary(res.data?.data || res.data);
                         } catch (err: any) {
@@ -524,65 +532,86 @@ export default function DoctorAppointment() {
                         }
                       }}
                     >
-                      {loadingSummary ? "Đang xử lý..." : "✨ Tóm tắt tiền khám AI"}
+                      {loadingSummary ? (
+                        "Đang xử lý..."
+                      ) : intakeSummary ? (
+                        <>🔄 Tóm tắt lại</>
+                      ) : (
+                        <>✨ Tóm tắt tiền khám AI</>
+                      )}
                     </Button>
-                    {intakeSummary && (
-                      <Button
-                        size="sm"
-                        variant="outline-secondary"
-                        disabled={loadingSummary}
-                        title="Tạo lại tóm tắt từ dữ liệu mới nhất"
-                        onClick={async () => {
-                          if (!viewItem) return;
-                          setLoadingSummary(true);
-                          try {
-                            const res = await (await import("../../api/http")).http.post(
-                              `/doctor/appointments/${viewItem.id}/intake-summary?regenerate=true`
-                            );
-                            setIntakeSummary(res.data?.data || res.data);
-                          } catch (err: any) {
-                            alert(err.response?.data?.message || "Không thể tạo lại tóm tắt.");
-                          } finally {
-                            setLoadingSummary(false);
-                          }
-                        }}
-                      >
-                        🔄 Tạo lại
-                      </Button>
-                    )}
                   </div>
                 </div>
 
-                {intakeSummary && (
-                  <div className="alert alert-info py-2 px-3 mb-2">
-                    <div className="d-flex justify-content-between align-items-center mb-1">
-                      <span className="badge bg-primary">
-                        {intakeSummary.source === 'ai' ? '🤖 Bản nháp AI' : '📋 Phân tích Quy tắc'}
-                      </span>
-                      <span className="small text-muted">Bác sĩ cần xác minh trước khi khám</span>
+                {/* Khung Tóm tắt AI */}
+                {intakeSummary ? (
+                  <div>
+                    <div className="alert alert-info py-2 px-3 mb-2 border-0 bg-info-subtle rounded-2">
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <span className="badge bg-primary text-white px-2 py-1">
+                          {intakeSummary.source === "ai" ? "🤖 Tóm tắt AI" : "📋 Phân tích Quy tắc"}
+                        </span>
+                        <span className="text-secondary small fst-italic" style={{ fontSize: "12px" }}>
+                          Bác sĩ cần xác minh trước khi khám
+                        </span>
+                      </div>
+                      {intakeSummary.bullets && intakeSummary.bullets.length > 0 ? (
+                        <ul className="mb-0 ps-3 small text-dark d-flex flex-column gap-1">
+                          {intakeSummary.bullets.map((b: string, i: number) => (
+                            <li key={i} className="line-height-base">{b}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div className="small text-dark">{intakeSummary.summary}</div>
+                      )}
                     </div>
-                    {intakeSummary.bullets && intakeSummary.bullets.length > 0 ? (
-                      <ul className="mb-0 ps-3 small">
-                        {intakeSummary.bullets.map((b: string, i: number) => (
-                          <li key={i}>{b}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <div className="small">{intakeSummary.summary}</div>
-                    )}
+                    {/* Toggle đối chiếu văn bản gốc */}
+                    <div className="text-end">
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="text-muted p-0 text-decoration-none small"
+                        style={{ fontSize: "12px" }}
+                        onClick={() => setShowRawIntake(!showRawIntake)}
+                      >
+                        {showRawIntake ? "▲ Thu gọn thông tin gốc" : "▼ Xem thông tin bệnh nhân nhập ban đầu"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* Thông tin tiền khám gốc (Hiển thị khi chưa có tóm tắt hoặc khi bác sĩ chủ động bấm xem) */}
+                {(!intakeSummary || showRawIntake) && (
+                  <div className={`small text-secondary ${intakeSummary ? "mt-2 pt-2 border-top" : ""}`}>
+                    <div className="row g-2">
+                      <div className="col-md-6">
+                        <strong>Triệu chứng:</strong> {(viewItem as any).intake?.symptoms || viewItem.reason || "Chưa ghi nhận"}
+                      </div>
+                      <div className="col-md-6">
+                        <strong>Thời gian xuất hiện:</strong> {(viewItem as any).intake?.duration || "—"}
+                      </div>
+                      <div className="col-md-6">
+                        <strong>Dị ứng thuốc/thực phẩm:</strong>{" "}
+                        <span className="text-danger fw-semibold">
+                          {(viewItem as any).intake?.allergies && (viewItem as any).intake.allergies.length > 0
+                            ? (Array.isArray((viewItem as any).intake.allergies) ? (viewItem as any).intake.allergies.join(", ") : (viewItem as any).intake.allergies)
+                            : "Không có / Chưa ghi nhận"}
+                        </span>
+                      </div>
+                      <div className="col-md-6">
+                        <strong>Tiền sử bệnh lý:</strong> {(viewItem as any).intake?.medicalHistory && (viewItem as any).intake.medicalHistory.length > 0 ? (Array.isArray((viewItem as any).intake.medicalHistory) ? (viewItem as any).intake.medicalHistory.join(", ") : (viewItem as any).intake.medicalHistory) : "—"}
+                      </div>
+                      <div className="col-md-6">
+                        <strong>Thuốc đang dùng:</strong> {(viewItem as any).intake?.currentMedications || "—"}
+                      </div>
+                      {((viewItem as any).intake?.heightCm || (viewItem as any).intake?.weightKg) && (
+                        <div className="col-md-6">
+                          <strong>Thể trạng:</strong> Chiều cao: {(viewItem as any).intake?.heightCm || "—"} cm, Cân nặng: {(viewItem as any).intake?.weightKg || "—"} kg
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
-
-                <div className="small text-secondary">
-                  <div><strong>Triệu chứng:</strong> {(viewItem as any).intake?.symptoms || viewItem.reason || "Chưa ghi nhận"}</div>
-                  <div><strong>Thời gian xuất hiện:</strong> {(viewItem as any).intake?.duration || "—"}</div>
-                  <div><strong>Dị ứng thuốc/thực phẩm:</strong> <span className="text-danger fw-semibold">{(viewItem as any).intake?.allergies || "Không rõ / Chưa ghi nhận"}</span></div>
-                  <div><strong>Tiền sử bệnh lý:</strong> {(viewItem as any).intake?.medicalHistory || "—"}</div>
-                  <div><strong>Thuốc đang dùng:</strong> {(viewItem as any).intake?.currentMedications || "—"}</div>
-                  {((viewItem as any).intake?.heightCm || (viewItem as any).intake?.weightKg) && (
-                    <div><strong>Chỉ số sinh trắc:</strong> Chiều cao: {(viewItem as any).intake?.heightCm || "—"} cm, Cân nặng: {(viewItem as any).intake?.weightKg || "—"} kg</div>
-                  )}
-                </div>
               </div>
               
               {/* Display prescriptions if any */}
