@@ -146,6 +146,29 @@ const createVoucher = async (actor, payload, req) => {
     });
   }
 
+  // In-App Notification: Bắn chuông thông báo voucher ưu đãi mới đến bệnh nhân
+  try {
+    const { notificationService } = require('./notification.service');
+    const discountText = voucher.type === 'PERCENT'
+      ? `${voucher.discountValue}%`
+      : `${voucher.discountValue.toLocaleString('vi-VN')} VNĐ`;
+    await notificationService.broadcastToRole({
+      role: 'PATIENT',
+      title: `Ưu đãi mới: Mã giảm giá ${voucher.code}`,
+      message: `Nhận ngay ưu đãi giảm ${discountText} cho lịch khám của bạn. Nhập mã ${voucher.code} khi thanh toán đặt lịch.`,
+      type: 'VOUCHER',
+      link: '/appointment',
+      metadata: {
+        voucherId: voucher.id,
+        code: voucher.code,
+        discountValue: voucher.discountValue,
+        type: voucher.type,
+      },
+    });
+  } catch (notifErr) {
+    console.warn('[voucherService] Broadcast notification error:', notifErr.message);
+  }
+
   return serializeVoucher(voucher);
 };
 

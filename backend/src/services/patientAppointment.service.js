@@ -379,6 +379,43 @@ async function bookAppointment(user, query = {}, body = {}) {
   let appointment = null;
   let createError = null;
 
+  // Parse medical intake info from payload
+  const rawIntake = body.intake || body.appointment?.intake || {};
+  const intakeSymptoms = rawIntake.symptoms || reason || null;
+  const intakeDuration = rawIntake.duration || null;
+  const intakeCurrentMedications = rawIntake.currentMedications || null;
+  const intakeAllergies = Array.isArray(rawIntake.allergies)
+    ? rawIntake.allergies.map(String).map((s) => s.trim()).filter(Boolean)
+    : typeof rawIntake.allergies === 'string' && rawIntake.allergies.trim()
+    ? rawIntake.allergies.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean)
+    : [];
+  const intakeMedicalHistory = Array.isArray(rawIntake.medicalHistory)
+    ? rawIntake.medicalHistory.map(String).map((s) => s.trim()).filter(Boolean)
+    : typeof rawIntake.medicalHistory === 'string' && rawIntake.medicalHistory.trim()
+    ? rawIntake.medicalHistory.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean)
+    : [];
+  const intakeWeightKg = Number.isFinite(Number(rawIntake.weightKg)) && Number(rawIntake.weightKg) > 0
+    ? Number(rawIntake.weightKg)
+    : null;
+  const intakeHeightCm = Number.isFinite(Number(rawIntake.heightCm)) && Number(rawIntake.heightCm) > 0
+    ? Number(rawIntake.heightCm)
+    : null;
+  const intakeNotes = rawIntake.notes || null;
+
+  const intakeData = {
+    symptoms: intakeSymptoms,
+    duration: intakeDuration,
+    currentMedications: intakeCurrentMedications,
+    allergies: intakeAllergies,
+    medicalHistory: intakeMedicalHistory,
+    weightKg: intakeWeightKg,
+    heightCm: intakeHeightCm,
+    notes: intakeNotes,
+    submittedAt: (intakeSymptoms || intakeAllergies.length > 0 || intakeMedicalHistory.length > 0)
+      ? new Date()
+      : null,
+  };
+
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     const appointmentNo = generateAppointmentNo(appointmentType);
     try {
@@ -395,6 +432,7 @@ async function bookAppointment(user, query = {}, body = {}) {
         status: initialStatus,
         paymentStatus: initialPaymentStatus,
         reason,
+        intake: intakeData,
         patients: snapshotPatients,
         createdAt: clock.now(),
         voucherId: consumedVoucherInfo?.voucher?.id ?? null,
@@ -511,6 +549,28 @@ async function bookAppointment(user, query = {}, body = {}) {
   const paymentDueAt = requiresPayment
     ? new Date(createdAtDate.getTime() + holdMinutes * 60 * 1000).toISOString()
     : undefined;
+
+  // 10.1 Gửi thông báo In-App Notification (nhảy chuông thông báo) và email xác nhận
+  try {
+    const { notificationService } = require('./notification.service');
+    const doctorName = doctor ? `${doctor.degree ? doctor.degree + ' ' : ''}${doctor.fullName}` : 'Bác sĩ';
+    const dateFormatted = appointment.appointmentDate;
+    const timeFormatted = appointment.appointmentTime || firstSlotTime || '';
+    await notificationService.notifyUser({
+      userId: user.id,
+      title: 'Đặt lịch khám thành công',
+      message: `Lịch hẹn #${appointment.appointmentNo} với ${doctorName} vào lúc ${timeFormatted} ngày ${dateFormatted} đã được ghi nhận.`,
+      type: 'STATUS_CHANGE',
+      link: '/patient/appointments',
+      metadata: {
+        appointmentId: appointment.id,
+        appointmentNo: appointment.appointmentNo,
+      },
+      sendEmail: true,
+    });
+  } catch (notifErr) {
+    console.warn('[patientAppointment] Failed to dispatch in-app notification:', notifErr.message);
+  }
 
   // 11. Format final response
   return {
@@ -704,6 +764,7 @@ async function getMyUpcomingAppointments(user, query = {}) {
     APPOINTMENT_STATUSES.PENDING_CONFIRMATION,
     APPOINTMENT_STATUSES.CONFIRMED,
     APPOINTMENT_STATUSES.CHECKED_IN,
+    APPOINTMENT_STATUSES.EXPIRED,
   ];
 
   if (query && (query.includeCancelled === 'true' || query.includeCancelled === true)) {

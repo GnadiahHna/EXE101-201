@@ -19,6 +19,13 @@ type ManualFormState = {
   dob: string;
   relationship: string;
   reason: string;
+  symptoms: string;
+  duration: string;
+  allergies: string;
+  medicalHistory: string;
+  currentMedications: string;
+  weightKg: string;
+  heightCm: string;
 };
 
 const initialManualForm: ManualFormState = {
@@ -28,6 +35,13 @@ const initialManualForm: ManualFormState = {
   dob: "",
   relationship: "",
   reason: "",
+  symptoms: "",
+  duration: "",
+  allergies: "",
+  medicalHistory: "",
+  currentMedications: "",
+  weightKg: "",
+  heightCm: "",
 };
 
 const STORAGE_KEY = "appointment_step3_manual_form";
@@ -57,6 +71,12 @@ function mapToPatientSelection(p: PatientInfo): PatientSelection {
     dob: p.dob ?? "",
     relationship: p.relationship,
     reason: "",
+    symptoms: "",
+    duration: "",
+    allergies: p.allergies || [],
+    medicalHistory: p.medicalHistory || [],
+    weightKg: p.weightKg ?? null,
+    heightCm: p.heightCm ?? null,
   };
 }
 
@@ -82,13 +102,24 @@ export default function Step3Patients() {
   const selectedCount = selected.length;
   const remainingSlots = Math.max(0, maxSelectable - selectedCount);
 
-  // Load form data from sessionStorage on mount
+  // Load form data from sessionStorage on mount (including pre-fill from Chatbot)
   useEffect(() => {
     try {
       const saved = sessionStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setManualForm(parsed);
+      let initialData = saved ? JSON.parse(saved) : {};
+
+      // Check chatbot pre-fill draft
+      const chatbotDraft = sessionStorage.getItem('appointment_intake_draft');
+      if (chatbotDraft) {
+        const parsedDraft = JSON.parse(chatbotDraft);
+        if (parsedDraft.symptoms && !initialData.symptoms) {
+          initialData.symptoms = parsedDraft.symptoms;
+          initialData.reason = parsedDraft.symptoms;
+        }
+      }
+
+      if (Object.keys(initialData).length > 0) {
+        setManualForm((prev) => ({ ...prev, ...initialData }));
       }
     } catch (err) {
       console.error('Error loading form from sessionStorage:', err);
@@ -233,6 +264,12 @@ export default function Step3Patients() {
       return;
     }
 
+    const parseCommaList = (str: string) =>
+      str
+        .split(/[,;\n]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+
     const newSelection: PatientSelection = {
       patientInfoId: null,
       fullName: manualForm.fullName.trim(),
@@ -240,14 +277,23 @@ export default function Step3Patients() {
       gender: manualForm.gender,
       dob: manualForm.dob,
       relationship: manualForm.relationship.trim() || undefined,
-      reason: manualForm.reason.trim() || undefined,
+      reason: manualForm.symptoms.trim() || manualForm.reason.trim() || undefined,
+      symptoms: manualForm.symptoms.trim() || manualForm.reason.trim() || undefined,
+      duration: manualForm.duration.trim() || undefined,
+      allergies: parseCommaList(manualForm.allergies),
+      medicalHistory: parseCommaList(manualForm.medicalHistory),
+      currentMedications: manualForm.currentMedications.trim() || undefined,
+      weightKg: manualForm.weightKg ? Number(manualForm.weightKg) : null,
+      heightCm: manualForm.heightCm ? Number(manualForm.heightCm) : null,
     };
 
     setSelections([...selected, newSelection]);
-    // Keep form data in sessionStorage, only clear reason field for next entry
+    // Keep form data in sessionStorage, only clear reason & symptoms field for next entry
     setManualForm((prev) => ({
       ...prev,
-      reason: "", // Clear reason for next patient, keep other fields
+      reason: "",
+      symptoms: "",
+      duration: "",
     }));
     setFormError(null);
   };
@@ -331,7 +377,7 @@ export default function Step3Patients() {
         <Col lg={7} xl={8}>
           <Card className="appt-inner-card h-100">
             <Card.Body>
-              <div className="appt-heading mb-3">Booking Info</div>
+              <div className="appt-heading mb-3">Thông tin đặt lịch</div>
               <div className="booking-info-grid">
                 <div>
                   <div className="booking-info__label">Ngày khám</div>
@@ -530,14 +576,101 @@ export default function Step3Patients() {
               />
             </Col>
             <Col md={12}>
-              <Form.Label>Lý do khám (tuỳ chọn)</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={2}
-                value={manualForm.reason}
-                onChange={(e) => handleManualInputChange("reason", e.target.value)}
-                placeholder="Mô tả ngắn gọn triệu chứng hoặc nhu cầu khám…"
-              />
+              <div className="p-3 bg-light rounded-3 border">
+                <div className="alert alert-warning py-1 px-2 mb-2 small text-dark d-flex align-items-center">
+                  <span className="me-2">⚠️</span>
+                  <span><strong>Chế độ thử nghiệm:</strong> Bản demo học thuật, dùng dữ liệu giả, không thay thế bác sĩ.</span>
+                </div>
+                {sessionStorage.getItem('appointment_intake_draft') && (
+                  <div className="alert alert-info py-1 px-2 mb-2 small d-flex justify-content-between align-items-center">
+                    <span>💡 <em>Thông tin triệu chứng đã được điền sẵn từ cuộc trò chuyện với Trợ lý AI. Vui lòng kiểm tra và chỉnh sửa nếu cần.</em></span>
+                    <button
+                      type="button"
+                      className="btn-close btn-close-sm"
+                      aria-label="Đóng"
+                      onClick={() => sessionStorage.removeItem('appointment_intake_draft')}
+                    />
+                  </div>
+                )}
+                <h6 className="fw-bold text-primary mb-2">📋 Thông tin Tiền khám y tế (Medical Intake)</h6>
+                <p className="text-muted small mb-3">
+                  Giúp bác sĩ nắm rõ tiền sử bệnh và cảnh báo an toàn dị ứng thuốc trước khi kê đơn.
+                </p>
+                <Row className="g-3">
+                  <Col md={7}>
+                    <Form.Label>Triệu chứng chính</Form.Label>
+                    <Form.Control
+                      value={manualForm.symptoms}
+                      onChange={(e) => handleManualInputChange("symptoms", e.target.value)}
+                      placeholder="Ví dụ: Đau đầu, sốt, đau khớp gối..."
+                    />
+                  </Col>
+                  <Col md={5}>
+                    <Form.Label>Thời gian xuất hiện</Form.Label>
+                    <Form.Control
+                      value={manualForm.duration}
+                      onChange={(e) => handleManualInputChange("duration", e.target.value)}
+                      placeholder="Ví dụ: 2 ngày nay, 1 tuần..."
+                    />
+                  </Col>
+
+                  <Col md={6}>
+                    <Form.Label>
+                      Dị ứng thuốc / Thực phẩm <span className="text-danger small">(Quan trọng)</span>
+                    </Form.Label>
+                    <Form.Control
+                      value={manualForm.allergies}
+                      onChange={(e) => handleManualInputChange("allergies", e.target.value)}
+                      placeholder="Ví dụ: Penicillin, Aspirin, hải sản..."
+                    />
+                    <Form.Text className="text-muted">
+                      Nhập tên thuốc dị ứng (ví dụ: Penicillin) để hệ thống tự động cảnh báo an toàn kê đơn.
+                    </Form.Text>
+                  </Col>
+
+                  <Col md={6}>
+                    <Form.Label>Tiền sử bệnh lý nền</Form.Label>
+                    <Form.Control
+                      value={manualForm.medicalHistory}
+                      onChange={(e) => handleManualInputChange("medicalHistory", e.target.value)}
+                      placeholder="Ví dụ: Tăng huyết áp, tiểu đường type 2, dạ dày..."
+                    />
+                  </Col>
+
+                  <Col md={6}>
+                    <Form.Label>Thuốc đang sử dụng (nếu có)</Form.Label>
+                    <Form.Control
+                      value={manualForm.currentMedications}
+                      onChange={(e) => handleManualInputChange("currentMedications", e.target.value)}
+                      placeholder="Ví dụ: Amlodipine 5mg, Metformin..."
+                    />
+                  </Col>
+
+                  <Col md={3}>
+                    <Form.Label>Chiều cao (cm)</Form.Label>
+                    <Form.Control
+                      type="number"
+                      min={30}
+                      max={250}
+                      value={manualForm.heightCm}
+                      onChange={(e) => handleManualInputChange("heightCm", e.target.value)}
+                      placeholder="165"
+                    />
+                  </Col>
+
+                  <Col md={3}>
+                    <Form.Label>Cân nặng (kg)</Form.Label>
+                    <Form.Control
+                      type="number"
+                      min={1}
+                      max={300}
+                      value={manualForm.weightKg}
+                      onChange={(e) => handleManualInputChange("weightKg", e.target.value)}
+                      placeholder="60"
+                    />
+                  </Col>
+                </Row>
+              </div>
             </Col>
           </Row>
           <div className="d-flex justify-content-end mt-3">
@@ -588,6 +721,23 @@ export default function Step3Patients() {
                         <span className="badge bg-light text-dark mt-2">
                           {item.patientInfoId ? "Hồ sơ đã lưu" : "Nhập thủ công"}
                         </span>
+                        {item.allergies && item.allergies.length > 0 && (
+                          <div className="mt-1">
+                            <span className="badge bg-danger-subtle text-danger border border-danger-subtle">
+                              ⚠️ Dị ứng: {item.allergies.join(", ")}
+                            </span>
+                          </div>
+                        )}
+                        {item.medicalHistory && item.medicalHistory.length > 0 && (
+                          <div className="text-muted small mt-1">
+                            Bệnh nền: {item.medicalHistory.join(", ")}
+                          </div>
+                        )}
+                        {(item.heightCm || item.weightKg) && (
+                          <div className="text-muted small">
+                            Thể trạng: {item.heightCm ? `${item.heightCm}cm` : ""} {item.weightKg ? `${item.weightKg}kg` : ""}
+                          </div>
+                        )}
                       </div>
                       <Button
                         variant="link"

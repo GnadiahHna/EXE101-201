@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { http } from '../../api/http';
@@ -6,8 +6,12 @@ import { http } from '../../api/http';
 export default function OAuth2Callback() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const hasExchanged = useRef(false);
 
   useEffect(() => {
+    if (hasExchanged.current) return;
+    hasExchanged.current = true;
+
     (async () => {
       try {
         const searchParams = new URLSearchParams(window.location.search);

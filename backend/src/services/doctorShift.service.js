@@ -16,6 +16,11 @@ const SHIFT_TIMES = {
   AFTERNOON: { startTime: '13:00', endTime: '17:00' },
   EVENING: { startTime: '18:00', endTime: '21:00' },
 };
+const SHIFT_CAPACITIES = {
+  MORNING: { default: 12, max: 12 },
+  AFTERNOON: { default: 12, max: 12 },
+  EVENING: { default: 9, max: 9 },
+};
 const SLOT_DURATION_MINUTES = 20;
 const BUFFER_MINUTES = 0;
 
@@ -127,7 +132,9 @@ const createShift = async (actor, payload, req) => {
 
   const date = payload?.date;
   const shiftType = payload?.shift;
-  const maxPatients = payload?.maxPatients === undefined ? 10 : Number(payload.maxPatients);
+  const defaultCapacity = SHIFT_CAPACITIES[shiftType]?.default ?? 12;
+  const maxAllowedCapacity = SHIFT_CAPACITIES[shiftType]?.max ?? 12;
+  const maxPatients = payload?.maxPatients === undefined ? defaultCapacity : Number(payload.maxPatients);
   const repeatWeekly = payload?.repeatWeekly === undefined ? false : Boolean(payload.repeatWeekly);
   const repeatCount = payload?.repeatCount === undefined ? 0 : Number(payload.repeatCount);
   const note = payload?.note == null ? '' : String(payload.note);
@@ -138,8 +145,8 @@ const createShift = async (actor, payload, req) => {
   if (date === today() && SHIFT_TIMES[shiftType].startTime <= currentTime()) {
     throw new ApiError(400, 'Cannot create a shift that has already started');
   }
-  if (!Number.isInteger(maxPatients) || maxPatients < 1 || maxPatients > 100) {
-    throw new ApiError(400, 'maxPatients must be an integer between 1 and 100');
+  if (!Number.isInteger(maxPatients) || maxPatients < 1 || maxPatients > maxAllowedCapacity) {
+    throw new ApiError(400, `Số bệnh nhân tối đa cho ca ${shiftType} phải từ 1 đến ${maxAllowedCapacity}`);
   }
   if (typeof note !== 'string' || note.length > 255) {
     throw new ApiError(400, 'note must be a string of at most 255 characters');
@@ -371,9 +378,11 @@ const adjustShift = async (actor, shiftId, payload, req) => {
   // 2. Capacity adjustment (maxPatients)
   // Hard constraint: Cannot reduce capacity below already booked slots
   if (payload?.maxPatients !== undefined) {
+    const shiftType = shift.shift || shift.shiftType;
+    const maxAllowedCapacity = SHIFT_CAPACITIES[shiftType]?.max ?? 12;
     const newMax = Number(payload.maxPatients);
-    if (!Number.isInteger(newMax) || newMax < 1 || newMax > 100) {
-      throw new ApiError(400, 'maxPatients phải là số nguyên từ 1 đến 100');
+    if (!Number.isInteger(newMax) || newMax < 1 || newMax > maxAllowedCapacity) {
+      throw new ApiError(400, `Số bệnh nhân tối đa cho ca ${shiftType} phải từ 1 đến ${maxAllowedCapacity}`);
     }
 
     if (newMax < bookedSlotIds.size) {

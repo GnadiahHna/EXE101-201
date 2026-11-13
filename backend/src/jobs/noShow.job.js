@@ -4,6 +4,7 @@ const env = require('../config/env');
 const { clock } = require('../services/clock.service');
 const { acquireLock, releaseLock } = require('../utils/jobLock');
 const appointmentStateService = require('../services/appointmentState.service');
+const stateService = appointmentStateService.appointmentStateService || appointmentStateService;
 const auditService = require('../services/audit.service');
 const { parseClinicDateTimeToUtc } = require('../utils/timezone');
 const { calculateNoShowRisk } = require('../utils/noShowRisk');
@@ -27,10 +28,54 @@ async function runNoShowScan() {
     const tz = env.clinicTimeZone || 'Asia/Ho_Chi_Minh';
     const todayStr = now.toISOString().slice(0, 10);
 
-    // Find appointments that are CONFIRMED or CHECKED_IN but past scheduled date/shift
+    // 1. Quá ngày hoặc quá giờ hẹn trong ngày: Lịch hẹn chờ phê duyệt (PENDING_CONFIRMATION) quá giờ hẹn mà chưa được xác nhận -> chuyển EXPIRED (Quá hạn)
+    const currentTimeStr = clock.currentTime();
+    const pendingExpiredList = await Appointment.find({
+      status: APPOINTMENT_STATUSES.PENDING_CONFIRMATION,
+      $or: [
+        { appointmentDate: { $lt: todayStr } },
+        { appointmentDate: todayStr, appointmentTime: { $lt: currentTimeStr } },
+      ],
+    }).lean();
+
+    for (const appt of pendingExpiredList) {
+      try {
+        await stateService.transition({
+          appointmentId: appt.id,
+          fromStatuses: [APPOINTMENT_STATUSES.PENDING_CONFIRMATION],
+          toStatus: APPOINTMENT_STATUSES.EXPIRED,
+          actor: { id: 0, role: 'SYSTEM' },
+          extraFields: { note: 'Tự động chuyển sang Quá hạn do qua giờ/ngày hẹn mà chưa được xác nhận' },
+        });
+      } catch (err) {
+        console.warn(`[noShowScan] Lỗi chuyển trạng thái EXPIRED cho lịch #${appt.id}:`, err.message);
+      }
+    }
+
+    // 2. Quá ngày: Lịch hẹn đã xác nhận (CONFIRMED) quá ngày hẹn -> chuyển COMPLETED (Đã xong)
+    const confirmedPassedList = await Appointment.find({
+      status: APPOINTMENT_STATUSES.CONFIRMED,
+      appointmentDate: { $lt: todayStr },
+    }).lean();
+
+    for (const appt of confirmedPassedList) {
+      try {
+        await stateService.transition({
+          appointmentId: appt.id,
+          fromStatuses: [APPOINTMENT_STATUSES.CONFIRMED],
+          toStatus: APPOINTMENT_STATUSES.COMPLETED,
+          actor: { id: 0, role: 'SYSTEM' },
+          extraFields: { note: 'Tự động chuyển sang Đã xong do lịch hẹn đã xác nhận và đã qua ngày khám' },
+        });
+      } catch (err) {
+        console.warn(`[noShowScan] Lỗi chuyển trạng thái COMPLETED cho lịch #${appt.id}:`, err.message);
+      }
+    }
+
+    // 3. Trong ngày hôm nay: Find appointments that are CONFIRMED but past shift end
     const candidates = await Appointment.find({
       status: APPOINTMENT_STATUSES.CONFIRMED,
-      appointmentDate: { $lte: todayStr },
+      appointmentDate: todayStr,
       checkedIn: false,
     }).lean();
 
@@ -46,11 +91,12 @@ async function runNoShowScan() {
       if (now.getTime() > shiftEndUtc.getTime() + gracePeriodMs) {
         // Transition to NO_SHOW via State Machine
         try {
-          await appointmentStateService.transitionTo({
-            identifier: appt.id,
-            targetStatus: APPOINTMENT_STATUSES.NO_SHOW,
+          await stateService.transition({
+            appointmentId: appt.id,
+            fromStatuses: [APPOINTMENT_STATUSES.CONFIRMED],
+            toStatus: APPOINTMENT_STATUSES.NO_SHOW,
             actor: { id: 0, role: 'SYSTEM' },
-            note: 'Tự động đánh dấu No-show do bệnh nhân không đến khám trong ca trực',
+            extraFields: { note: 'Tự động đánh dấu No-show do bệnh nhân không đến khám trong ca trực' },
           });
 
           // Increment patient penalty counter & apply booking lock if threshold reached
@@ -116,3 +162,4 @@ module.exports = {
   stopNoShowJob,
   runNoShowScan,
 };
+

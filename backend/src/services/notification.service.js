@@ -44,7 +44,7 @@ class NotificationService {
     };
   }
 
-  async notifyUser({ userId, title, message, type = 'SYSTEM', link = null, metadata = {}, sendEmail = true }) {
+  async notifyUser({ userId, title, message, type = 'SYSTEM', link = null, metadata = {}, sendEmail = false }) {
     if (!userId) return null;
 
     // 1. Create In-App Notification in DB
@@ -69,6 +69,44 @@ class NotificationService {
     }
 
     return notif;
+  }
+
+  async broadcastToRole({ role, title, message, type = 'SYSTEM', link = null, metadata = {} }) {
+    try {
+      const { User } = require('../models');
+      let query = {};
+      if (role) {
+        const r = String(role).trim();
+        const roleNormalized = r.charAt(0).toUpperCase() + r.slice(1).toLowerCase(); // 'Admin', 'Receptionist', 'Doctor', 'Patient'
+        query = {
+          $or: [
+            { userType: roleNormalized },
+            { userType: r.toUpperCase() },
+            { userType: r },
+            { role: roleNormalized },
+            { role: r.toUpperCase() },
+            { role: r },
+          ],
+        };
+      }
+      const users = await User.find(query).select('id').lean();
+      if (!users || users.length === 0) return 0;
+
+      const notifs = users.map((u) => ({
+        userId: Number(u.id),
+        title,
+        message,
+        type,
+        link,
+        metadata,
+      }));
+
+      await Notification.insertMany(notifs, { ordered: false });
+      return notifs.length;
+    } catch (err) {
+      console.warn('[NotificationService] Broadcast error:', err.message);
+      return 0;
+    }
   }
 }
 

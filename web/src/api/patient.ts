@@ -10,6 +10,10 @@ export type PatientInfo = {
   phoneNumber?: string;
   dob?: string;
   relationship?: string;
+  allergies?: string[];
+  medicalHistory?: string[];
+  weightKg?: number | null;
+  heightCm?: number | null;
   slotId?: number;
   appointmentTime?: string;
   slotStartTime?: string;
@@ -50,6 +54,10 @@ export function normalizePatientInfo(raw: unknown): PatientInfo {
     phoneNumber: pickString(record.phoneNumber) ?? pickString(record.phone),
     dob: pickString(record.dob) ?? pickString(record.dateOfBirth),
     relationship: pickString(record.relationship),
+    allergies: Array.isArray(record.allergies) ? (record.allergies as string[]) : undefined,
+    medicalHistory: Array.isArray(record.medicalHistory) ? (record.medicalHistory as string[]) : undefined,
+    weightKg: typeof record.weightKg === "number" ? record.weightKg : null,
+    heightCm: typeof record.heightCm === "number" ? record.heightCm : null,
     slotId: typeof record.slotId === "number" ? record.slotId : undefined,
     appointmentTime: pickString(record.appointmentTime) ?? pickString(record.time),
     slotStartTime: pickString(record.slotStartTime),

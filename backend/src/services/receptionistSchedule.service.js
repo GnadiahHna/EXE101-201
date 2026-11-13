@@ -157,6 +157,35 @@ async function getOperationalSchedule(actor, query = {}) {
     throw new ApiError(403, 'Chỉ lễ tân hoặc quản trị viên mới có quyền xem lịch vận hành', 'FORBIDDEN_ROLE');
   }
 
+  // Tự động kiểm tra và chuyển các lịch PENDING_CONFIRMATION đã qua giờ hẹn sang EXPIRED
+  try {
+    const todayStr = clock.today();
+    const currentTimeStr = clock.currentTime();
+    const expiredPending = await Appointment.find({
+      status: 'PENDING_CONFIRMATION',
+      $or: [
+        { appointmentDate: { $lt: todayStr } },
+        { appointmentDate: todayStr, appointmentTime: { $lt: currentTimeStr } },
+      ],
+    }).select('id');
+
+    if (expiredPending.length > 0) {
+      const { appointmentStateService } = require('./appointmentState.service');
+      const stateService = appointmentStateService.appointmentStateService || appointmentStateService;
+      for (const p of expiredPending) {
+        await stateService.transition({
+          appointmentId: p.id,
+          fromStatuses: ['PENDING_CONFIRMATION'],
+          toStatus: 'EXPIRED',
+          actor: { id: 0, role: 'SYSTEM' },
+          extraFields: { note: 'Tự động chuyển sang Quá hạn do qua giờ/ngày hẹn mà chưa được xác nhận' },
+        }).catch(() => {});
+      }
+    }
+  } catch (syncErr) {
+    // Non-blocking sync
+  }
+
   const { startDate, endDate } = resolveDateRange(query);
 
   // Pagination bounds: default 20, max 100

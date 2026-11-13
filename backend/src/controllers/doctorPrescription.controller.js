@@ -7,8 +7,8 @@ const getByAppointment = async (req, res) => {
 
 const createBatch = async (req, res, next) => {
   try {
-    const { items, medicines, overrideAllergyConfirmation } = req.body;
-    const data = items || medicines || req.body;
+    const { items, medicines, prescriptions: reqPrescriptions, overrideAllergyConfirmation } = req.body;
+    const data = items || medicines || reqPrescriptions || req.body;
     const prescriptions = await doctorPrescriptionService.create(req.user, req.params.appointmentId, data, {
       overrideAllergyConfirmation: Boolean(overrideAllergyConfirmation || req.body.overrideAllergyConfirmation),
     });
@@ -32,8 +32,8 @@ const createSingle = async (req, res, next) => {
 
 const updateBatch = async (req, res, next) => {
   try {
-    const { items, medicines, overrideAllergyConfirmation } = req.body;
-    const data = items || medicines || req.body;
+    const { items, medicines, prescriptions: reqPrescriptions, overrideAllergyConfirmation } = req.body;
+    const data = items || medicines || reqPrescriptions || req.body;
     const prescriptions = await doctorPrescriptionService.update(req.user, req.params.appointmentId, data, {
       overrideAllergyConfirmation: Boolean(overrideAllergyConfirmation || req.body.overrideAllergyConfirmation),
     });

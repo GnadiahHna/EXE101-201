@@ -53,6 +53,7 @@ import RecepDashboard from '../pages/receptionist/RecepDashboard';
 import RecepAppointment from '../pages/receptionist/RecepAppointment';
 import RecepEvents from '../pages/receptionist/RecepEvents';
 import RecepVouchers from '../pages/receptionist/RecepVouchers';
+import ShiftCancellationManagement from '../pages/common/ShiftCancellationManagement';
 import Doctors from '../pages/guest/Doctors';
 import Services from '../pages/guest/Services';
 import AboutPage from '../pages/guest/About';
@@ -122,6 +123,7 @@ export default function AppRoutes() {
             <Route path="/admin/specialties/create" element={<AdminSpecialty/>} />
             <Route path="/admin/specialties/update/:id" element={<AdminSpecialty />} />
             <Route path="/admin/shifts" element={<AdminDoctorShifts />} />
+            <Route path="/admin/shift-cancellations" element={<ShiftCancellationManagement />} />
             <Route path="/admin/news" element={<AdminNews />} />
             <Route path="/admin/events" element={<AdminEvents />} />
             <Route path="/admin/vouchers" element={<AdminVouchers />} />
@@ -151,6 +153,7 @@ export default function AppRoutes() {
           <Route element={<RecepLayout />}>
             <Route path="/receptionist/dashboard" element={<RecepDashboard />} />
             <Route path="/receptionist/shift" element={<RecepShift />} />
+            <Route path="/receptionist/shift-cancellations" element={<ShiftCancellationManagement />} />
             <Route path="/receptionist/appointment" element={<RecepAppointment />} />
             <Route path="/receptionist/events" element={<RecepEvents />} />
             <Route path="/receptionist/vouchers" element={<RecepVouchers />} />

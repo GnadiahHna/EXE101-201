@@ -166,10 +166,10 @@ export default function AdminReceptionist() {
     <>
       <Row className="align-items-center mb-3">
         <Col xs="12" md="6" className="d-flex align-items-center gap-2">
-          <div className="fw-semibold">Receptionists</div>
+          <div className="fw-semibold">Danh sách lễ tân</div>
         </Col>
         <Col xs="12" md="6" className="d-flex justify-content-md-end mt-2 mt-md-0">
-          <Button onClick={(e) => { e.preventDefault(); openCreate(); }}>+ Create Receptionist</Button>
+          <Button onClick={(e) => { e.preventDefault(); openCreate(); }}>+ Thêm lễ tân</Button>
         </Col>
       </Row>
 
@@ -182,7 +182,7 @@ export default function AdminReceptionist() {
       )}
 
       {loading ? (
-        <div className="d-flex align-items-center gap-2"><Spinner animation="border" size="sm" /><span>Loading receptionists…</span></div>
+        <div className="d-flex align-items-center gap-2"><Spinner animation="border" size="sm" /><span>Đang tải danh sách lễ tân…</span></div>
       ) : (
         <Row className="g-3">
           {receptionists.map((r) => (
@@ -192,12 +192,12 @@ export default function AdminReceptionist() {
                   <div className="d-flex align-items-start justify-content-between mb-2">
                     <Card.Title className="mb-0">{r.fullName}</Card.Title>
                     <div className="d-flex gap-2">
-                      <Button size="sm" variant="outline-primary" onClick={(e) => { e.preventDefault(); navigate(`/admin/receptionists/${r.id}`); }}>Detail</Button>
-                      <Button size="sm" variant="outline-secondary" onClick={(e) => { e.preventDefault(); navigate(`/admin/receptionists/update/${r.id}`); }}>Update</Button>
+                      <Button size="sm" variant="outline-primary" onClick={(e) => { e.preventDefault(); navigate(`/admin/receptionists/${r.id}`); }}>Chi tiết</Button>
+                      <Button size="sm" variant="outline-secondary" onClick={(e) => { e.preventDefault(); navigate(`/admin/receptionists/update/${r.id}`); }}>Cập nhật</Button>
                     </div>
                   </div>
                   <div className="text-muted small mb-2">{r.email || "—"} · {r.phoneNumber || "—"}</div>
-                  <Card.Text className="text-muted flex-grow-1">Gender: {r.gender ?? "—"}</Card.Text>
+                  <Card.Text className="text-muted flex-grow-1">Giới tính: {r.gender === "Female" ? "Nữ" : r.gender === "Male" ? "Nam" : (r.gender ?? "—")}</Card.Text>
                   <div className="text-muted" style={{ fontSize: 12 }}>ID: {r.id}</div>
                 </Card.Body>
               </Card>
@@ -205,7 +205,7 @@ export default function AdminReceptionist() {
           ))}
           {receptionists.length === 0 && (
             <Col xs={12}>
-              <Card className="shadow-sm"><Card.Body className="text-center text-muted">No receptionists found.</Card.Body></Card>
+              <Card className="shadow-sm"><Card.Body className="text-center text-muted">Không tìm thấy nhân viên lễ tân nào.</Card.Body></Card>
             </Col>
           )}
         </Row>
@@ -216,23 +216,23 @@ export default function AdminReceptionist() {
       {/* Detail Modal */}
       <Modal show={showDetail} onHide={closeDetail} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Receptionist Detail</Modal.Title>
+          <Modal.Title>Chi tiết lễ tân</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {detailEntity ? (
             <div className="vstack gap-2">
               <div><strong>ID:</strong> {detailEntity.id}</div>
-              <div><strong>Full name:</strong> {detailEntity.fullName}</div>
+              <div><strong>Họ và tên:</strong> {detailEntity.fullName}</div>
               <div><strong>Email:</strong> {detailEntity.email ?? "—"}</div>
-              <div><strong>Phone:</strong> {detailEntity.phoneNumber ?? "—"}</div>
-              <div><strong>Gender:</strong> {detailEntity.gender ?? "—"}</div>
+              <div><strong>Số điện thoại:</strong> {detailEntity.phoneNumber ?? "—"}</div>
+              <div><strong>Giới tính:</strong> {detailEntity.gender === "Female" ? "Nữ" : detailEntity.gender === "Male" ? "Nam" : (detailEntity.gender ?? "—")}</div>
             </div>
           ) : (
-            <div className="d-flex align-items-center gap-2"><Spinner animation="border" size="sm" /><span>Loading…</span></div>
+            <div className="d-flex align-items-center gap-2"><Spinner animation="border" size="sm" /><span>Đang tải…</span></div>
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="outline-secondary" onClick={closeDetail}>Close</Button>
+          <Button variant="outline-secondary" onClick={closeDetail}>Đóng</Button>
         </Modal.Footer>
       </Modal>
 
@@ -240,14 +240,14 @@ export default function AdminReceptionist() {
       <Modal show={showUpdate} onHide={closeUpdate} centered>
         <Form onSubmit={submitUpdate}>
           <Modal.Header closeButton>
-            <Modal.Title>Update Receptionist</Modal.Title>
+            <Modal.Title>Cập nhật lễ tân</Modal.Title>
           </Modal.Header>
           <Modal.Body>
             {updateEntity ? (
               <Row className="g-3">
                 <Col md={12}>
                   <Form.Group controlId="uFullName">
-                    <Form.Label>Full name</Form.Label>
+                    <Form.Label>Họ và tên</Form.Label>
                     <Form.Control name="fullName" value={updateForm.fullName} onChange={onUpdateChange} required />
                   </Form.Group>
                 </Col>

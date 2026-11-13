@@ -68,6 +68,7 @@ router.use('/shifts', doctorShiftRoutes);
 router.use('/appointments', patientAppointmentRoutes);
 router.use('/appointments', receptionistAppointmentRoutes);
 router.use('/appointments', doctorAppointmentRoutes);
+router.use('/doctor/appointments', doctorAppointmentRoutes);
 router.use('/prescriptions', doctorPrescriptionRoutes);
 router.use('/rss-sources', rssNewsRoutes);
 router.use('/patients-info', patientProfileRoutes);

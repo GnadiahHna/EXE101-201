@@ -13,7 +13,7 @@ function TotalPatientsCircle({ count }: { count: number }) {
   return (
     <div className="total-users-circle">
       <div className="total-users-circle__content">
-        <div className="total-users-circle__label">Total Patients</div>
+        <div className="total-users-circle__label">Tổng bệnh nhân</div>
         <div className="total-users-circle__value">{count.toLocaleString()}</div>
       </div>
     </div>
@@ -435,7 +435,7 @@ export default function RecepDashboard() {
       {/* Header với Total Users Circle */}
       <div className="recep-dashboard__header">
         <div>
-          <h2 className="recep-dashboard__title">Receptionist Overview</h2>
+          <h2 className="recep-dashboard__title">Tổng quan Lễ tân</h2>
           <p className="recep-dashboard__subtitle">Quản lý và theo dõi các hoạt động của phòng khám</p>
         </div>
         <div className="recep-dashboard__header-right">
@@ -453,7 +453,7 @@ export default function RecepDashboard() {
       <Row className="g-4 mt-3">
         <Col md={6} lg={4}>
           <ManagementCard
-            title="Quản lý Shift"
+            title="Quản lý Ca làm việc"
             description="Xem và quản lý các ca làm việc của bác sĩ"
             icon={IconShift}
             link="/receptionist/shift"
@@ -489,7 +489,7 @@ export default function RecepDashboard() {
 
         <Col md={6} lg={4}>
           <ManagementCard
-            title="Quản lý Event"
+            title="Quản lý Sự kiện"
             description="Xem và quản lý các sự kiện của phòng khám"
             icon={IconEvent}
             link="/receptionist/events"
@@ -501,7 +501,7 @@ export default function RecepDashboard() {
 
         <Col md={6} lg={4}>
           <ManagementCard
-            title="Quản lý Voucher"
+            title="Quản lý Phiếu giảm giá"
             description="Xem và quản lý các voucher của khách hàng"
             icon={IconVoucher}
             link="/receptionist/vouchers"

@@ -58,3 +58,4 @@ function checkDrugAllergies(medicines = [], patientAllergies = []) {
 module.exports = {
   checkDrugAllergies,
 };
+

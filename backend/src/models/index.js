@@ -21,6 +21,7 @@ const UserVoucher = require('./userVoucher.model');
 const Feedback = require('./feedback.model');
 const RefreshToken = require('./refreshToken.model');
 const JobLock = require('./jobLock.model');
+const AiUsage = require('./aiUsage.model');
 
 module.exports = {
   Counter,
@@ -48,6 +49,7 @@ module.exports = {
   Voucher,
   UserVoucher,
   Feedback,
+  AiUsage,
   Notification: require('./notification.model'),
   Waitlist: require('./waitlist.model'),
 };

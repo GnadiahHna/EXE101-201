@@ -136,6 +136,26 @@ const createEvent = async (actor, payload, req) => {
     });
   }
 
+  // In-App Notification: Bắn chuông thông báo sự kiện mới đến bệnh nhân
+  try {
+    const { notificationService } = require('./notification.service');
+    await notificationService.broadcastToRole({
+      role: 'PATIENT',
+      title: `Sự kiện mới: ${event.title}`,
+      message: event.description
+        ? `${event.description.slice(0, 120)}${event.description.length > 120 ? '...' : ''} (Từ ${event.startDate} đến ${event.endDate})`
+        : `Phòng khám đang diễn ra sự kiện ${event.title} từ ${event.startDate} đến ${event.endDate}.`,
+      type: 'EVENT',
+      link: '/events',
+      metadata: {
+        eventId: event.id,
+        title: event.title,
+      },
+    });
+  } catch (notifErr) {
+    console.warn('[eventService] Broadcast notification error:', notifErr.message);
+  }
+
   return serializeEvent(event, linkedVoucher);
 };
 

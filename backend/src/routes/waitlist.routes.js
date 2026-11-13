@@ -76,3 +76,4 @@ router.delete('/:id', requireRoles(ROLES.PATIENT), async (req, res, next) => {
 });
 
 module.exports = router;
+

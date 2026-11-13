@@ -1,6 +1,7 @@
 const path = require('path');
 const crypto = require('crypto');
 require('dotenv').config();
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
 // Ephemeral dev/test secret generated per process runtime if not explicitly set
 const ephemeralDevSecret = crypto.randomBytes(32).toString('hex');
@@ -143,7 +144,7 @@ class ConfigService {
   }
 
   get rateLimitMax() {
-    return this.getNumber('RATE_LIMIT_MAX', 100);
+    return this.getNumber('RATE_LIMIT_MAX', 1000);
   }
 
   // --- Outbox & Background Processing ---
@@ -283,17 +284,41 @@ class ConfigService {
     return this.getNumber('FEEDBACK_RATE_PER_HOUR', 10);
   }
 
+  get demoMode() {
+    return this.getBoolean('DEMO_MODE', true);
+  }
+
+  get aiProcessingEnabled() {
+    return this.getBoolean('AI_PROCESSING_ENABLED', true);
+  }
+
+  get featureIntakeSummary() {
+    return this.getBoolean('FEATURE_INTAKE_SUMMARY', true);
+  }
+
+  get intakeSummaryPregenerate() {
+    return this.getBoolean('INTAKE_SUMMARY_PREGENERATE', false);
+  }
+
   get geminiApiKey() {
     return this.getString('GEMINI_API_KEY', '');
   }
 
   get geminiModels() {
-    const raw = this.getString('GEMINI_MODELS', 'gemini-2.5-flash,gemini-1.5-flash,gemini-1.5-pro');
+    const raw = this.getString('GEMINI_MODELS', 'gemini-3.5-flash-lite,gemini-3.5-flash,gemini-3.8-flash,gemini-3-flash-preview,gemini-flash-latest,gemini-2.5-flash-lite');
     return raw.split(',').map((s) => s.trim()).filter(Boolean);
   }
 
   get chatDailyBudget() {
-    return this.getNumber('CHAT_DAILY_BUDGET', 500); // Max daily Gemini calls
+    return this.getNumber('CHAT_DAILY_BUDGET', 500); // Max daily Gemini calls for chat
+  }
+
+  get intakeSummaryDailyBudget() {
+    return this.getNumber('INTAKE_SUMMARY_DAILY_BUDGET', 200); // Max daily Gemini calls for intake summary
+  }
+
+  get chatMinConfidence() {
+    return this.getNumber('CHAT_MIN_CONFIDENCE', 0.55);
   }
 
   get clinicName() {

@@ -88,7 +88,15 @@ export default function Header(){
               <NotificationBell />
               <NavLink to="/appointment" className="btn login">Đặt lịch khám</NavLink>
               <NavDropdown className="btn login login--ghost" title={user?.fullName || 'User'} id="user-dropdown">
-                <NavDropdown.Item as={Link} to="/patient/profile">Xem thông tin</NavDropdown.Item>
+                {userType === 'Doctor' ? (
+                  <NavDropdown.Item as={Link} to="/doctor/dashboard">Trang quản trị Bác sĩ</NavDropdown.Item>
+                ) : userType === 'Receptionist' ? (
+                  <NavDropdown.Item as={Link} to="/receptionist/dashboard">Trang quản trị Lễ tân</NavDropdown.Item>
+                ) : userType === 'Admin' ? (
+                  <NavDropdown.Item as={Link} to="/admin/dashboard">Trang quản trị Hệ thống</NavDropdown.Item>
+                ) : (
+                  <NavDropdown.Item as={Link} to="/patient/profile">Xem thông tin</NavDropdown.Item>
+                )}
                 <NavDropdown.Divider />
                 <NavDropdown.Item onClick={() => logout()}>Đăng xuất</NavDropdown.Item>
               </NavDropdown>

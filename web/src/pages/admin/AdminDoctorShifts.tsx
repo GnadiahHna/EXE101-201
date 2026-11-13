@@ -4,12 +4,12 @@ import { fetchShiftsInWeek, type AdminShift } from "../../api/shift";
 import { fetchSpecialties, type Specialty } from "../../api/specialty";
 import "../../styles/shift.css";
 
-const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const days = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
 const slotOrder = ["MORNING", "AFTERNOON", "EVENING"] as const;
 const slotLabel: Record<typeof slotOrder[number], string> = {
-  MORNING: "Morning (08:00 - 12:00)",
-  AFTERNOON: "Afternoon (13:00 - 17:00)",
-  EVENING: "Evening (18:00 - 21:00)",
+  MORNING: "Ca Sáng (08:00 - 12:00)",
+  AFTERNOON: "Ca Chiều (13:00 - 17:00)",
+  EVENING: "Ca Tối (18:00 - 21:00)",
 };
 
 function parseLocalDate(dateStr: string) {
@@ -113,8 +113,8 @@ export default function AdminDoctorShifts() {
       {/* Filter Bar */}
       <div className="shift-filterbar">
         <div className="left">
-          <h5 className="title">Shifts by Week</h5>
-          <span className="week-range">Week: {weekRangeLabel}</span>
+          <h5 className="title">Lịch trực theo tuần</h5>
+          <span className="week-range">Tuần: {weekRangeLabel}</span>
         </div>
 
         <div className="right">
@@ -131,13 +131,13 @@ export default function AdminDoctorShifts() {
             id="filter-spec"
             title={
               currentSpecId
-                ? specialties.find((s) => s.id === currentSpecId)?.name || "By specialty"
-                : "All specialties"
+                ? specialties.find((s) => s.id === currentSpecId)?.name || "Theo chuyên khoa"
+                : "Tất cả chuyên khoa"
             }
             variant="light"
           >
             <Dropdown.Item active={!currentSpecId} onClick={() => setCurrentSpecId(null)}>
-              All
+              Tất cả
             </Dropdown.Item>
             <Dropdown.Divider />
             {specialties.map((s) => (
@@ -169,7 +169,7 @@ export default function AdminDoctorShifts() {
           <table className="shift-table table table-bordered align-middle">
             <thead>
               <tr>
-                <th className="col-shift">Shift</th>
+                <th className="col-shift">Ca khám</th>
                 {headers.map((h) => (
                   <th key={h.iso} className="col-day">
                     {h.label}

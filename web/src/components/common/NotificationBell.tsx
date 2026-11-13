@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { http } from '../../api/http';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -13,6 +14,7 @@ interface NotificationItem {
 }
 
 export default function NotificationBell() {
+  const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
@@ -23,9 +25,28 @@ export default function NotificationBell() {
     if (!isAuthenticated) return;
     try {
       const res = await http.get('/notifications?limit=10');
-      const items = res.data?.data?.items || res.data?.items || [];
-      const unread = res.data?.data?.unreadCount ?? res.data?.unreadCount ?? items.filter((n: NotificationItem) => !n.isRead).length;
-      setNotifications(items);
+      const items =
+        res.data?.data?.notifications ||
+        res.data?.data?.items ||
+        res.data?.notifications ||
+        res.data?.items ||
+        [];
+      const unread =
+        res.data?.data?.unreadCount ??
+        res.data?.unreadCount ??
+        items.filter((n: any) => !n.read && !n.isRead).length;
+
+      const normalized = items.map((n: any) => ({
+        id: n.id,
+        type: n.type,
+        title: n.title,
+        message: n.message,
+        link: n.link,
+        isRead: Boolean(n.read || n.isRead),
+        createdAt: n.createdAt,
+      }));
+
+      setNotifications(normalized);
       setUnreadCount(unread);
     } catch {
       // Ignore background notification fetch errors
@@ -34,8 +55,15 @@ export default function NotificationBell() {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000); // 1 minute poll
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchNotifications, 30000); // 30s poll
+    const onFocus = () => fetchNotifications();
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('notification-refresh', onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('notification-refresh', onFocus);
+    };
   }, [isAuthenticated]);
 
   useEffect(() => {
@@ -63,11 +91,23 @@ export default function NotificationBell() {
       await http.patch(`/notifications/${id}/read`);
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
       setUnreadCount(prev => Math.max(0, prev - 1));
+      setIsOpen(false);
       if (link) {
-        window.location.href = link;
+        if (link.startsWith('http://') || link.startsWith('https://')) {
+          window.location.href = link;
+        } else {
+          navigate(link);
+        }
       }
     } catch {
-      if (link) window.location.href = link;
+      setIsOpen(false);
+      if (link) {
+        if (link.startsWith('http://') || link.startsWith('https://')) {
+          window.location.href = link;
+        } else {
+          navigate(link);
+        }
+      }
     }
   };
 

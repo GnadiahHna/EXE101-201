@@ -22,6 +22,10 @@ const specialtySchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    triageHints: {
+      type: [String],
+      default: [],
+    },
   },
   {
     timestamps: true,

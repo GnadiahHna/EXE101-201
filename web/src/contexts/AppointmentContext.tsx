@@ -11,6 +11,13 @@ export type PatientSelection = {
   dob: string;
   relationship?: string;
   reason?: string;
+  symptoms?: string;
+  duration?: string;
+  allergies?: string[];
+  medicalHistory?: string[];
+  currentMedications?: string;
+  weightKg?: number | null;
+  heightCm?: number | null;
 };
 
 export type SelectedVoucherInfo = {

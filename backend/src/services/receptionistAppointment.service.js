@@ -165,10 +165,8 @@ async function confirmAppointment(actor, appointmentId) {
     options: {
       auditAction: AUDIT_ACTIONS.CONFIRM_APPOINTMENT,
       outboxEventType: 'APPOINTMENT_CONFIRMED',
-      outboxChannel: 'EMAIL',
+      outboxChannel: 'WEBSOCKET',
       outboxPayload: {
-        recipientEmail: patientEmail,
-        recipientName: patientName,
         appointmentNo: appointment.appointmentNo,
         appointmentDate: appointment.appointmentDate,
         appointmentTime: appointment.appointmentTime,
@@ -176,6 +174,25 @@ async function confirmAppointment(actor, appointmentId) {
       },
     },
   });
+
+  // In-App Notification (Chuông thông báo cho bệnh nhân)
+  try {
+    const { notificationService } = require('./notification.service');
+    await notificationService.notifyUser({
+      userId: appointment.patientId,
+      title: 'Lịch hẹn đã được xác nhận',
+      message: `Lịch hẹn #${appointment.appointmentNo} vào lúc ${appointment.appointmentTime} ngày ${appointment.appointmentDate} đã được phòng khám xác nhận.`,
+      type: 'STATUS_CHANGE',
+      link: '/patient/appointments',
+      metadata: {
+        appointmentId: appointment.id,
+        appointmentNo: appointment.appointmentNo,
+      },
+      sendEmail: false,
+    });
+  } catch (notifErr) {
+    console.warn('[receptionistAppointment] Failed to notify patient of confirmation:', notifErr.message);
+  }
 
   return {
     appointment: transitionResult.appointment,
@@ -380,7 +397,7 @@ async function checkinAppointment(actor, appointmentId, verificationPayload = {}
     options: {
       auditAction: AUDIT_ACTIONS.CHECKIN,
       outboxEventType: 'DOCTOR_PATIENT_CHECKED_IN',
-      outboxChannel: 'ALL',
+      outboxChannel: 'WEBSOCKET',
       outboxPayload: {
         doctorId: appointment.doctorId,
         doctorEmail,
@@ -425,10 +442,10 @@ async function checkinAppointment(actor, appointmentId, verificationPayload = {}
  */
 async function cancelAppointmentByStaff(actor, appointmentId, { reason } = {}) {
   // 1. Role verification
-  const allowedRoles = [ROLES.RECEPTIONIST, ROLES.ADMIN];
+  const allowedRoles = [ROLES.RECEPTIONIST, ROLES.DOCTOR, ROLES.ADMIN];
   const actorRole = actor?.role || actor?.userType;
   if (!actor || !allowedRoles.includes(actorRole)) {
-    throw new ApiError(403, 'Chỉ Lễ tân hoặc Quản trị viên mới có quyền hủy lịch hẹn', 'FORBIDDEN_ROLE');
+    throw new ApiError(403, 'Chỉ Lễ tân, Bác sĩ hoặc Quản trị viên mới có quyền hủy lịch hẹn', 'FORBIDDEN_ROLE');
   }
 
   // 2. Validate reason: must be a non-empty string
@@ -540,6 +557,48 @@ async function cancelAppointmentByStaff(actor, appointmentId, { reason } = {}) {
     },
   });
 
+  // In-App Notification (Chuông thông báo cho bệnh nhân) & Gửi email
+  try {
+    const { notificationService } = require('./notification.service');
+    await notificationService.notifyUser({
+      userId: appointment.patientId,
+      title: 'Lịch hẹn đã bị hủy',
+      message: `Lịch hẹn #${appointment.appointmentNo} đã bị hủy bởi phòng khám. Lý do: ${cleanReason}. Vui lòng liên hệ với chúng tôi nếu cần hỗ trợ thêm.`,
+      type: 'STATUS_CHANGE',
+      link: '/patient/appointments',
+      metadata: {
+        appointmentId: appointment.id,
+        appointmentNo: appointment.appointmentNo,
+        cancelReason: cleanReason,
+      },
+      sendEmail: true,
+    });
+
+    // Nếu người thực hiện là Bác sĩ, bắn thông báo chuông tới Lễ tân và Admin
+    if (actorRole === ROLES.DOCTOR) {
+      const doctorDisplayName = actor.fullName || 'Bác sĩ';
+      const staffNotifPayload = {
+        title: 'Bác sĩ yêu cầu/thực hiện hủy lịch hẹn',
+        message: `${doctorDisplayName} đã hủy lịch hẹn #${appointment.appointmentNo} (ngày ${appointment.appointmentDate} ${appointment.appointmentTime}). Lý do: ${cleanReason}.`,
+        type: 'SYSTEM',
+        link: '/receptionist/appointment',
+        metadata: {
+          appointmentId: appointment.id,
+          appointmentNo: appointment.appointmentNo,
+          doctorId: appointment.doctorId,
+          patientId: appointment.patientId,
+          cancelReason: cleanReason,
+        },
+      };
+      await Promise.all([
+        notificationService.broadcastToRole({ role: ROLES.RECEPTIONIST, ...staffNotifPayload }),
+        notificationService.broadcastToRole({ role: ROLES.ADMIN, ...staffNotifPayload }),
+      ]);
+    }
+  } catch (notifErr) {
+    console.warn('[receptionistAppointment] Failed to notify of cancellation:', notifErr.message);
+  }
+
   return {
     appointment: transitionResult.appointment,
     status: transitionResult.status,
@@ -577,10 +636,10 @@ async function rescheduleAppointmentByStaff(
   { newShiftId, newSlotId, reason } = {},
 ) {
   // 1. Role verification
-  const allowedRoles = [ROLES.RECEPTIONIST, ROLES.ADMIN];
+  const allowedRoles = [ROLES.RECEPTIONIST, ROLES.DOCTOR, ROLES.ADMIN];
   const actorRole = actor?.role || actor?.userType;
   if (!actor || !allowedRoles.includes(actorRole)) {
-    throw new ApiError(403, 'Chỉ Lễ tân hoặc Quản trị viên mới có quyền đổi lịch hẹn', 'FORBIDDEN_ROLE');
+    throw new ApiError(403, 'Chỉ Lễ tân, Bác sĩ hoặc Quản trị viên mới có quyền đổi lịch hẹn', 'FORBIDDEN_ROLE');
   }
 
   // 2. Validate reason: non-empty string
@@ -763,6 +822,49 @@ async function rescheduleAppointmentByStaff(
       },
     });
 
+    // In-App Notification (Chuông thông báo cho bệnh nhân) & Gửi email
+    try {
+      const { notificationService } = require('./notification.service');
+      await notificationService.notifyUser({
+        userId: oldAppointment.patientId,
+        title: 'Lịch hẹn đã được dời/đổi lịch',
+        message: `Lịch hẹn #${oldAppointment.appointmentNo} đã được chuyển sang lịch mới #${newAppointment.appointmentNo} vào lúc ${candidateSlot.startTime} ngày ${newShift.date}. Lý do: ${cleanReason}.`,
+        type: 'STATUS_CHANGE',
+        link: '/patient/appointments',
+        metadata: {
+          oldAppointmentId: oldAppointment.id,
+          newAppointmentId: newAppointment.id,
+          newAppointmentNo: newAppointment.appointmentNo,
+          rescheduleReason: cleanReason,
+        },
+        sendEmail: true,
+      });
+
+      // Bắn thông báo chuông tới Lễ tân và Admin khi có thay đổi lịch hẹn
+      const doctorDisplayName = actor.fullName || (actorRole === ROLES.DOCTOR ? 'Bác sĩ' : actorRole === ROLES.RECEPTIONIST ? 'Lễ tân' : 'Quản trị viên');
+      const staffNotifPayload = {
+        title: 'Lịch hẹn đã được điều chỉnh/đổi lịch',
+        message: `${doctorDisplayName} vừa điều chỉnh lịch hẹn #${oldAppointment.appointmentNo} sang ngày ${newShift.date} ${candidateSlot.startTime} (Mã mới: #${newAppointment.appointmentNo}). Lý do: ${cleanReason}.`,
+        type: 'SYSTEM',
+        link: '/receptionist/appointment',
+        metadata: {
+          oldAppointmentId: oldAppointment.id,
+          newAppointmentId: newAppointment.id,
+          newAppointmentNo: newAppointment.appointmentNo,
+          doctorId: oldAppointment.doctorId,
+          patientId: oldAppointment.patientId,
+          rescheduleReason: cleanReason,
+          actorRole,
+        },
+      };
+      await Promise.all([
+        notificationService.broadcastToRole({ role: ROLES.RECEPTIONIST, ...staffNotifPayload }),
+        notificationService.broadcastToRole({ role: ROLES.ADMIN, ...staffNotifPayload }),
+      ]);
+    } catch (notifErr) {
+      console.warn('[receptionistAppointment] Failed to notify of reschedule:', notifErr.message);
+    }
+
   } catch (err) {
     // COMPENSATION ROLLBACK: Revert the reserved slot back to AVAILABLE
     try {
@@ -797,6 +899,88 @@ async function rescheduleAppointmentByStaff(
   };
 }
 
+/**
+ * UC-REC-06: Receptionist / Admin marks an appointment as NO_SHOW (Vắng mặt).
+ * Allowed for CONFIRMED or CHECKED_IN appointments.
+ */
+async function markNoShowByStaff(actor, appointmentId, { note } = {}) {
+  const allowedRoles = [ROLES.RECEPTIONIST, ROLES.ADMIN];
+  const actorRole = actor?.role || actor?.userType;
+  if (!actor || !allowedRoles.includes(actorRole)) {
+    throw new ApiError(403, 'Chỉ Lễ tân hoặc Quản trị viên mới có quyền cập nhật trạng thái Không đến (No-show)', 'FORBIDDEN_ROLE');
+  }
+
+  const query = buildAppointmentQuery(appointmentId);
+  const appointment = await Appointment.findOne(query);
+
+  if (!appointment) {
+    throw new ApiError(404, `Không tìm thấy lịch hẹn với định danh: ${appointmentId}`, 'APPOINTMENT_NOT_FOUND');
+  }
+
+  if (appointment.status === APPOINTMENT_STATUSES.NO_SHOW) {
+    return {
+      appointment: appointment.toJSON ? appointment.toJSON() : appointment,
+      status: APPOINTMENT_STATUSES.NO_SHOW,
+      idempotent: true,
+      message: 'Lịch hẹn đã được đánh dấu không đến khám trước đó',
+    };
+  }
+
+  const allowedStatuses = [APPOINTMENT_STATUSES.CONFIRMED, APPOINTMENT_STATUSES.CHECKED_IN];
+  if (!allowedStatuses.includes(appointment.status)) {
+    throw new ApiError(
+      409,
+      `Không thể chuyển sang Không đến cho lịch hẹn ở trạng thái '${appointment.status}'. Chỉ áp dụng cho lịch Đã xác nhận hoặc Đã có mặt`,
+      'INVALID_STATE',
+    );
+  }
+
+  const cleanNote = typeof note === 'string' && note.trim() ? note.trim() : 'Lễ tân đánh dấu bệnh nhân không đến khám';
+  const transitionResult = await appointmentStateService.transition({
+    appointmentId: appointment.id,
+    fromStatuses: allowedStatuses,
+    toStatus: APPOINTMENT_STATUSES.NO_SHOW,
+    actor: {
+      userId: String(actor.userId || actor.id),
+      role: actorRole,
+      email: actor.email,
+    },
+    extraFields: {
+      noShowMarkedBy: actor.userId || actor.id,
+      noShowMarkedAt: clock.now(),
+      noShowNote: cleanNote,
+    },
+    options: {
+      auditAction: AUDIT_ACTIONS.STATUS_CHANGE || 'STATUS_CHANGE',
+      auditReason: cleanNote,
+      outboxEventType: 'APPOINTMENT_NO_SHOW_MARKED',
+      outboxPayload: {
+        appointmentId: appointment.id,
+        appointmentNo: appointment.appointmentNo,
+        patientId: appointment.patientId,
+      },
+    },
+  });
+
+  // Tăng số lần noShow của bệnh nhân
+  try {
+    const patientUser = await User.findOne({ id: appointment.patientId });
+    if (patientUser) {
+      patientUser.noShowCount = (patientUser.noShowCount || 0) + 1;
+      await patientUser.save();
+    }
+  } catch (userErr) {
+    console.warn('[receptionistAppointment] Failed to increment user noShowCount:', userErr.message);
+  }
+
+  return {
+    appointment: transitionResult.appointment,
+    status: transitionResult.status,
+    idempotent: transitionResult.idempotent,
+    message: 'Đã chuyển trạng thái lịch hẹn thành Không đến (No-show)',
+  };
+}
+
 module.exports = {
   buildAppointmentQuery,
   isAppointmentExpired,
@@ -804,6 +988,7 @@ module.exports = {
   checkinAppointment,
   cancelAppointmentByStaff,
   rescheduleAppointmentByStaff,
+  markNoShowByStaff,
 };
 
 

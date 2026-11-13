@@ -21,23 +21,27 @@ export default function RecepSidebar() {
         <Nav className="menu">
           <Nav.Link as={NavLink} to="/receptionist/dashboard" end className="item">
             <span className="icon">{Icon.overview}</span>
-            Overview
+            Tổng quan
           </Nav.Link>
           <Nav.Link as={NavLink} to="/receptionist/shift" className="item">
             <span className="icon">{Icon.calendar}</span>
-            Shift
+            Ca làm việc
+          </Nav.Link>
+          <Nav.Link as={NavLink} to="/receptionist/shift-cancellations" className="item">
+            <span className="icon">{Icon.event}</span>
+            Duyệt hủy ca
           </Nav.Link>
           <Nav.Link as={NavLink} to="/receptionist/appointment" className="item">
             <span className="icon">{Icon.overview}</span>
-            Appointment
+            Lịch hẹn
           </Nav.Link>
           <Nav.Link as={NavLink} to="/receptionist/events" className="item">
             <span className="icon">{Icon.event}</span>
-            Events
+            Sự kiện
           </Nav.Link>
           <Nav.Link as={NavLink} to="/receptionist/vouchers" className="item">
             <span className="icon">{Icon.ticket}</span>
-            Vouchers
+            Phiếu giảm giá
           </Nav.Link>
         </Nav>
       </div>

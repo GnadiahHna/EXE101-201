@@ -24,9 +24,16 @@ function createRateLimitHandler(message, code = 'RATE_LIMIT_EXCEEDED') {
  */
 const defaultRateLimiter = rateLimit({
   windowMs: env.rateLimitWindowMs || 60000,
-  max: env.rateLimitMax || 100,
+  max: env.rateLimitMax || 1000,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
+  skip: (req) => {
+    // Không áp rate-limit tổng cho môi trường dev/local hoặc các polling background nhẹ như notifications
+    if (process.env.NODE_ENV === 'development' || req.ip === '127.0.0.1' || req.ip === '::1') {
+      return true;
+    }
+    return req.path.startsWith('/notifications');
+  },
   handler: createRateLimitHandler('Quá nhiều yêu cầu từ địa chỉ IP này. Vui lòng thử lại sau.'),
 });
 

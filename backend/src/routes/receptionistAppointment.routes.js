@@ -25,24 +25,34 @@ router.put(
   receptionistAppointmentController.checkinAppointment,
 );
 
-// UC-REC-05: Lễ tân / Admin hủy lịch hẹn
+// UC-REC-05: Lễ tân / Bác sĩ / Admin hủy lịch hẹn
 // Endpoint: PUT /appointments/cancel/:id
-// Allowed roles: RECEPTIONIST, ADMIN
+// Allowed roles: RECEPTIONIST, DOCTOR, ADMIN
 router.put(
   '/cancel/:id',
   authenticate,
-  requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN),
+  requireRoles(ROLES.RECEPTIONIST, ROLES.DOCTOR, ROLES.ADMIN),
   receptionistAppointmentController.cancelAppointment,
 );
 
-// UC-REC-05: Lễ tân / Admin đổi lịch hẹn (reschedule)
+// UC-REC-05: Lễ tân / Bác sĩ / Admin đổi lịch hẹn (reschedule)
 // Endpoint: PUT /appointments/reschedule/:id
-// Allowed roles: RECEPTIONIST, ADMIN
+// Allowed roles: RECEPTIONIST, DOCTOR, ADMIN
 router.put(
   '/reschedule/:id',
   authenticate,
-  requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN),
+  requireRoles(ROLES.RECEPTIONIST, ROLES.DOCTOR, ROLES.ADMIN),
   receptionistAppointmentController.rescheduleAppointment,
+);
+
+// UC-REC-06: Lễ tân / Admin đánh dấu Không đến (no-show)
+// Endpoint: PUT /appointments/no-show/:id
+// Allowed roles: RECEPTIONIST, ADMIN
+router.put(
+  '/no-show/:id',
+  authenticate,
+  requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN),
+  receptionistAppointmentController.markNoShow,
 );
 
 const receptionistScheduleController = require('../controllers/receptionistSchedule.controller');
@@ -66,14 +76,16 @@ router.get(
   receptionistScheduleController.getAppointmentsByDate,
 );
 
+const doctorAppointmentController = require('../controllers/doctorAppointment.controller');
+
 // GET /appointments/status/:status
-// Allowed roles: RECEPTIONIST, ADMIN, DOCTOR (delegated to doctor router)
+// Allowed roles: RECEPTIONIST, ADMIN, DOCTOR (delegated to doctor controller)
 router.get(
   '/status/:status',
   authenticate,
   (req, res, next) => {
     if (req.user?.userType === ROLES.DOCTOR) {
-      return next();
+      return doctorAppointmentController.getMyByStatus(req, res, next);
     }
     return requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN)(req, res, next);
   },
@@ -81,13 +93,13 @@ router.get(
 );
 
 // GET /appointments/by-shift/:shiftId
-// Allowed roles: RECEPTIONIST, ADMIN, DOCTOR (delegated to doctor router)
+// Allowed roles: RECEPTIONIST, ADMIN, DOCTOR (delegated to doctor controller)
 router.get(
   '/by-shift/:shiftId',
   authenticate,
   (req, res, next) => {
     if (req.user?.userType === ROLES.DOCTOR) {
-      return next();
+      return doctorAppointmentController.getByMyShift(req, res, next);
     }
     return requireRoles(ROLES.RECEPTIONIST, ROLES.ADMIN)(req, res, next);
   },

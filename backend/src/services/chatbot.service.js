@@ -1,156 +1,67 @@
-const { Specialty } = require('../models');
-const { matchesWordBoundary } = require('../utils/chatText');
+const crypto = require('crypto');
+const { configService } = require('../config/config.service');
+const { matchesWordBoundary, removeVietnameseTones, redactPII } = require('../utils/chatText');
 const { checkEmergencyTrigger, getEmergencyResponse } = require('../utils/chatEmergency');
 const { answerClinicOperations } = require('./chatbotOps.service');
-const { callGeminiTriage } = require('./geminiTriage.service');
+const { callGeminiDynamicTriage, getCachedSpecialties } = require('./geminiTriage.service');
 const { getSuggestedSlotsForSpecialty } = require('./chatbotSlot.service');
-const { redactPII } = require('../utils/chatText');
+const logger = require('../utils/logger');
 
-/**
- * Verified specialty rule templates for offline/fallback mode (strictly without drug dosages).
- */
-const SPECIALTY_RULES = [
-  {
-    key: 'pediatrics',
-    patterns: ['tre em', 'so sinh', 'be sot', 'em be', 'be quay khoc', 'con toi sot', 'tre sot cao'],
-    specialtyNamePatterns: ['nhi', 'pediatric'],
-    advice: `Đối với trẻ nhỏ có triệu chứng sốt hoặc khó chịu:
-- Cho trẻ mặc quần áo thoáng mát, uống nhiều nước hoặc tăng cường bú mẹ/bình.
-- Lau người hoặc chườm bằng nước ấm ở các vùng nách, bẹn.
-- Theo dõi sát thân nhiệt và các dấu hiệu li bì, nôn trớ, co giật.
-- Hãy tham khảo ý kiến bác sĩ hoặc dược sĩ chuyên khoa Nhi trước khi cho trẻ dùng bất kỳ loại thuốc nào.
+// Out-of-scope negative cache: normalizedHash -> timestamp (TTL 10 mins)
+const negativeCache = new Map();
+const NEGATIVE_CACHE_TTL = 10 * 60 * 1000;
 
-*Thông tin tư vấn mang tính chất tham khảo, không thay thế việc khám chữa bệnh trực tiếp với bác sĩ.*`,
-  },
-  {
-    key: 'dental',
-    patterns: ['nhuc rang', 'dau rang', 'chay mau chan rang', 'sau rang', 'nho rang', 'sung loi', 'tay trang rang'],
-    specialtyNamePatterns: ['rang ham mat', 'nha khoa', 'dental'],
-    advice: `Đối với các triệu chứng về răng miệng:
-- Súc miệng nhẹ nhàng bằng nước muối sinh lý ấm sau khi ăn.
-- Tránh ăn thức ăn quá nóng, quá lạnh, quá cứng hoặc nhiều đường.
-- Không tự ý dùng vật nhọn chọc vào vùng tổn thương.
-- Bạn nên đến phòng khám để bác sĩ Răng Hàm Mặt thăm khám và xử lý tận gốc nguyên nhân.
+// Escalation tracking: session/IP -> { count, windowStart }
+const escalationMap = new Map();
+const ESCALATION_WINDOW = 10 * 60 * 1000;
+const MAX_OUT_OF_SCOPE_ALLOWED = 3;
 
-*Thông tin tư vấn mang tính chất tham khảo, không thay thế việc khám chữa bệnh trực tiếp với bác sĩ.*`,
-  },
-  {
-    key: 'orthopedics',
-    patterns: ['dau khop', 'dau lung', 'thoai hoa', 'trat chan', 'dau goi', 'bong gan', 'dau vai gay', 'dau cot song'],
-    specialtyNamePatterns: ['co xuong khop', 'orthopedic', 'chan thuong'],
-    advice: `Đối với các cơn đau cơ xương khớp hoặc chấn thương nhẹ:
-- Tạm thời hạn chế vận động mạnh, dành thời gian nghỉ ngơi vùng bị đau.
-- Có thể chườm lạnh trong 24-48 giờ đầu nếu có sưng nề do va chạm.
-- Không tự ý bẻ khớp hoặc nắn chỉnh khi chưa có chẩn đoán hình ảnh.
-- Nên đến gặp bác sĩ Cơ Xương Khớp để được kiểm tra và tư vấn phác đồ điều trị an toàn.
-
-*Thông tin tư vấn mang tính chất tham khảo, không thay thế việc khám chữa bệnh trực tiếp với bác sĩ.*`,
-  },
-  {
-    key: 'ent',
-    patterns: ['viem hong', 'dau hong', 'nghet mui', 'chay nuoc mui', 'u tai', 'dau tai', 'khan tieng'],
-    specialtyNamePatterns: ['tai mui hong', 'ent'],
-    advice: `Đối với các triệu chứng vùng tai mũi họng:
-- Giữ ấm vùng cổ, súc họng bằng nước muối sinh lý hàng ngày.
-- Uống nhiều nước ấm, tránh uống nước đá hoặc ngồi điều hòa quá lạnh.
-- Không tự ý mua thuốc kháng sinh uống khi chưa có chỉ định của bác sĩ.
-- Nếu đau họng kéo dài hoặc kèm sốt, hãy đến khám chuyên khoa Tai Mũi Họng.
-
-*Thông tin tư vấn mang tính chất tham khảo, không thay thế việc khám chữa bệnh trực tiếp với bác sĩ.*`,
-  },
-  {
-    key: 'dermatology',
-    patterns: ['ngua da', 'di ung', 'noi me day', 'mun trung ca', 'phat ban', 'nam da', 'chay man'],
-    specialtyNamePatterns: ['da lieu', 'dermatology'],
-    advice: `Đối với các vấn đề về da liễu:
-- Giữ vệ sinh da sạch sẽ, khô thoáng, tránh gãi cào làm trầy xước dễ nhiễm trùng.
-- Tránh tiếp xúc với xà phòng hoặc hóa chất có tính tẩy rửa mạnh.
-- Không tự ý bôi các loại thuốc chứa corticoid không rõ nguồn gốc.
-- Nên đi khám bác sĩ Da Liễu để xác định đúng nguyên nhân gây bệnh.
-
-*Thông tin tư vấn mang tính chất tham khảo, không thay thế việc khám chữa bệnh trực tiếp với bác sĩ.*`,
-  },
-  {
-    key: 'fever_care',
-    patterns: ['lam the nao de ha sot', 'cach ha sot', 'meo ha sot', 'lam sao de het sot', 'huong dan ha sot'],
-    specialtyNamePatterns: ['noi', 'internal'],
-    advice: `Hướng dẫn chăm sóc khi bị sốt:
-- Nghỉ ngơi tại nơi thoáng mát, mặc quần áo rộng rãi, mỏng nhẹ.
-- Uống nhiều nước (nước lọc, nước hoa quả hoặc dung dịch bù điện giải theo hướng dẫn của dược sĩ).
-- Dùng khăn mềm nhúng nước ấm lau chườm ở trán, nách, bẹn.
-- Theo dõi nhiệt độ cơ thể bằng nhiệt kế định kỳ.
-- Không tự ý dùng thuốc hạ sốt khi chưa rõ liều lượng phù hợp, hãy hỏi ý kiến bác sĩ/dược sĩ.
-- **Dấu hiệu cần đi khám ngay**: Sốt cao liên tục trên 39°C không hạ, sốt kéo dài trên 48 giờ, nôn nhiều, khó thở, co giật hoặc đau đầu dữ dội.
-
-*Thông tin tư vấn mang tính chất tham khảo, không thay thế việc khám chữa bệnh trực tiếp với bác sĩ.*`,
-  },
-  {
-    key: 'internal',
-    patterns: ['sot', 'cam cum', 'chong mat', 'dau dau', 'met moi', 'dau bung', 'tieu chay', 'kho tieu', 'day bung'],
-    specialtyNamePatterns: ['noi', 'internal'],
-    advice: `Đối với các triệu chứng mệt mỏi, sốt hoặc rối loạn tiêu hóa:
-- Nghỉ ngơi nhiều hơn, uống đủ nước và ăn thức ăn mềm, dễ tiêu hóa.
-- Theo dõi thân nhiệt và các triệu chứng kèm theo.
-- Không tự ý sử dụng các loại thuốc điều trị khi chưa có hướng dẫn y tế.
-- Bác sĩ chuyên khoa Nội tổng quát sẽ giúp bạn thăm khám toàn diện và tìm ra nguyên nhân chính xác.
-
-*Thông tin tư vấn mang tính chất tham khảo, không thay thế việc khám chữa bệnh trực tiếp với bác sĩ.*`,
-  },
-];
-
-/**
- * Map matched specialty key to database Specialty ID.
- */
-async function resolveSpecialtyId(specialtyKey) {
-  if (!specialtyKey) return null;
-  const specialties = await Specialty.find({ isEnable: true }).lean();
-  if (!specialties.length) return null;
-
-  const rule = SPECIALTY_RULES.find((r) => r.key === specialtyKey);
-  const searchTerms = rule ? rule.specialtyNamePatterns : [specialtyKey];
-
-  for (const s of specialties) {
-    const sNameNorm = s.name.toLowerCase();
-    for (const term of searchTerms) {
-      if (sNameNorm.includes(term.toLowerCase())) {
-        return s.id;
-      }
-    }
+function recordEscalation(sessionId) {
+  if (!sessionId) return 1;
+  const now = Date.now();
+  const entry = escalationMap.get(sessionId) || { count: 0, windowStart: now };
+  if (now - entry.windowStart > ESCALATION_WINDOW) {
+    entry.count = 1;
+    entry.windowStart = now;
+  } else {
+    entry.count += 1;
   }
+  escalationMap.set(sessionId, entry);
+  return entry.count;
+}
 
-  // Fallback to first available specialty if none matched
-  return specialties[0]?.id || null;
+function isEscalated(sessionId) {
+  if (!sessionId) return false;
+  const entry = escalationMap.get(sessionId);
+  if (!entry) return false;
+  if (Date.now() - entry.windowStart > ESCALATION_WINDOW) {
+    escalationMap.delete(sessionId);
+    return false;
+  }
+  return entry.count >= MAX_OUT_OF_SCOPE_ALLOWED;
 }
 
 /**
- * Master Chatbot Answer Pipeline:
- * 1. Text normalization & Prompt injection safeguard
- * 2. Hard emergency rule (bypasses LLM, urgency=emergency, instructions for 115)
- * 3. Operations Q&A from DB (hours, address, pricing, vouchers, specialties, booking)
- * 4. Gemini AI Triage (redacted PII, strict JSON schema output, timeout, budget)
- * 5. Rule-based / Verified medical fallback (no hardcoded drugs/dosages, safe care advice)
- * 6. Triage to booking: fetch up to 3 upcoming available slots for the determined specialty
- *
- * @param {object} params
- * @param {string} params.message
- * @param {Array<{role: string, text: string}>} [params.history=[]]
- * @param {string} [params.sessionId]
- * @returns {Promise<object>} Standard triage JSON response
+ * Text normalization (Layer 1): lowercase, strip diacritics, zero-width, extra spaces
  */
-async function processChatMessage({ message, history = [], sessionId = '' }) {
-  const rawText = String(message || '').trim().slice(0, 1000);
-  if (!rawText) {
-    return {
-      urgency: 'info',
-      intent: 'empty_query',
-      answer: 'Xin chào! Tôi có thể giúp gì cho bạn về sức khỏe hoặc thông tin phòng khám?',
-      suggestedSlots: [],
-      actions: [],
-    };
-  }
+function normalizeText(text = '') {
+  return String(text)
+    .replace(/[\u200B-\u200D\uFEFF]/g, '') // remove zero-width characters
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
 
-  // Step 1: Prompt Injection Guard - Check for overt adversarial attempts
-  const isAdversarial = matchesWordBoundary(rawText, [
+function hashNormalizedText(normText) {
+  return crypto.createHash('sha256').update(normText).digest('hex');
+}
+
+/**
+ * Fast Regex injection / Jailbreak detector (Layer 1 heuristic)
+ */
+function detectInjectionSignals(text) {
+  const norm = removeVietnameseTones(text);
+  const adversarialPatterns = [
     'bo qua toan bo huong dan',
     'bo qua huong dan',
     'quen het huong dan truoc do',
@@ -158,106 +69,308 @@ async function processChatMessage({ message, history = [], sessionId = '' }) {
     'system prompt',
     'jailbreak',
     'dong vai',
-    'dan',
+    'dan mode',
     'lap trinh python',
     'viet code',
     'hack wifi',
     'chat doc',
-  ]);
+    'tao virus',
+  ];
+  return matchesWordBoundary(norm, adversarialPatterns);
+}
 
-  if (isAdversarial) {
+/**
+ * Validates post-LLM answer content:
+ * - Max 900 chars
+ * - No code blocks / HTML / external URLs
+ * - No drug dosage patterns (e.g. 500mg, 10ml, 2 vien, mg/kg)
+ * - No affirmative diagnosis ("bạn bị...", "chắc chắn là...")
+ */
+function validateAnswerContent(answer, activeSpecialties) {
+  if (!answer || typeof answer !== 'string') return false;
+  if (answer.length > 900) return false;
+
+  // No code fences, script tags, HTML tags
+  if (/```|<script|<\/?[a-z][\s\S]*>/i.test(answer)) return false;
+
+  // No external URLs (only clinic local paths or tel:)
+  const urlRegex = /(https?:\/\/[^\s]+)/gi;
+  const urls = answer.match(urlRegex) || [];
+  for (const u of urls) {
+    if (!u.includes('localhost') && !u.includes('nanoclinic.vn')) return false;
+  }
+
+  // No drug dosage patterns
+  const dosageRegex = /\b(\d+(?:[.,]\d+)?\s*(?:mg|ml|mcg|g|vien|viên|goi|gói|giot|giọt|mg\/kg))\b/i;
+  if (dosageRegex.test(answer)) return false;
+
+  // No affirmative diagnosis
+  const affirmativeDiagRegex = /\b(bạn bị|chắc chắn là|chắc chắn bạn bị|bạn đang mắc bệnh)\b/i;
+  const normAnswer = removeVietnameseTones(answer);
+  if (affirmativeDiagRegex.test(normAnswer)) return false;
+
+  return true;
+}
+
+/**
+ * Builds safe rejection response with quick replies from active specialties
+ */
+function buildRejectionResponse(activeSpecialties, customMsg) {
+  const defaultMsg = 'Mình là Trợ lý Điều hướng của Nano Clinic, chỉ hỗ trợ phân luồng triệu chứng theo các chuyên khoa của phòng khám và thông tin đặt lịch hẹn.';
+  const quickReplies = activeSpecialties.slice(0, 3).map((s) => ({
+    label: `Khám ${s.name}`,
+    specialtyId: s.id,
+  }));
+
+  return {
+    urgency: 'info',
+    intent: 'guardrail_rejection',
+    specialtyId: null,
+    confidence: 0,
+    answer: customMsg || defaultMsg,
+    quickReplies,
+    suggestedSlots: [],
+    actions: [],
+  };
+}
+
+/**
+ * Builds safe response when symptoms belong to a specialty NOT available at clinic
+ */
+function buildSpecialtyNotAvailableResponse(activeSpecialties) {
+  const names = activeSpecialties.map((s) => s.name).join(', ');
+  const generalSpecialty = activeSpecialties.find((s) =>
+    removeVietnameseTones(s.name).includes('noi tong quat') || removeVietnameseTones(s.name).includes('noi')
+  );
+
+  let answer = `Phòng khám Nano Clinic hiện chỉ phục vụ các chuyên khoa: ${names}. Đối với triệu chứng hoặc thuốc bạn vừa hỏi, bạn nên tham khảo ý kiến bác sĩ hoặc dược sĩ chuyên khoa phù hợp để thăm khám và tư vấn trực tiếp.\n\n*Thông tin tư vấn mang tính chất tham khảo, không thay thế việc khám chữa bệnh trực tiếp với bác sĩ.*`;
+  if (generalSpecialty) {
+    answer += `\n\nNếu bạn muốn đánh giá sức khỏe ban đầu, bạn có thể đặt lịch khám tại chuyên khoa **${generalSpecialty.name}** của phòng khám.`;
+  }
+
+  return {
+    urgency: 'routine',
+    intent: 'specialty_not_available',
+    specialtyId: generalSpecialty ? generalSpecialty.id : null,
+    confidence: 0.9,
+    answer,
+    suggestedSlots: [],
+    actions: generalSpecialty
+      ? [{ type: 'BOOK_SPECIALTY', specialtyId: generalSpecialty.id, label: `Đặt ${generalSpecialty.name}` }]
+      : [],
+  };
+}
+
+/**
+ * Rule-based fallback triage built dynamically from database triageHints
+ */
+function ruleBasedDynamicFallback(normText, activeSpecialties) {
+  const unaccented = removeVietnameseTones(normText);
+
+  // Check against active specialties triageHints
+  for (const s of activeSpecialties) {
+    const hints = (s.triageHints || []).map((h) => removeVietnameseTones(h).trim()).filter(Boolean);
+    if (matchesWordBoundary(unaccented, hints)) {
+      return {
+        specialtyId: s.id,
+        specialtyName: s.name,
+      };
+    }
+  }
+
+  // Common external specialties not offered
+  const outOfClinicSpecialties = [
+    'nhi', 'em be', 'tre em', 'be sot', 'so sinh',
+    'san phu khoa', 'mang thai', 'sinh con', 'sieu am thai',
+    'ung buou', 'ung thu', 'hoa tri', 'xa tri',
+  ];
+  if (matchesWordBoundary(unaccented, outOfClinicSpecialties)) {
+    return { isUnavailable: true };
+  }
+
+  return null;
+}
+
+/**
+ * Master Chatbot Pipeline:
+ * 1. Text normalization & Length limit (500 chars)
+ * 2. Hard emergency rule
+ * 3. Escalation check & Negative Cache
+ * 4. Ops questions (hours, address, pricing, doctors)
+ * 5. Gemini Structured Dynamic Triage
+ * 6. Rule-based Dynamic Fallback
+ * 7. Post-LLM safety checks & disclaimer
+ *
+ * @param {object} params
+ * @param {string} params.message
+ * @param {Array<{role: string, text: string}>} [params.history=[]]
+ * @param {string} [params.sessionId='']
+ * @returns {Promise<object>}
+ */
+async function processChatMessage({ message, history = [], sessionId = '' }) {
+  const rawInput = String(message || '').trim().slice(0, 500);
+  if (!rawInput) {
     return {
       urgency: 'info',
-      intent: 'guardrail_rejection',
-      specialtyId: null,
+      intent: 'empty_query',
+      answer: 'Xin chào! Tôi là Trợ lý Điều hướng của Nano Clinic. Tôi có thể hỗ trợ điều hướng chuyên khoa hoặc thông tin đặt lịch hẹn cho bạn.',
       suggestedSlots: [],
       actions: [],
-      answer: 'Xin lỗi, tôi là Trợ lý Y tế của Nano Clinic và chỉ hỗ trợ tư vấn sức khỏe ban đầu, phân luồng chuyên khoa và thông tin phòng khám. Tôi không thể thực hiện các yêu cầu nằm ngoài phạm vi này. Bạn đang có vấn đề gì về sức khỏe cần hỗ trợ không?',
     };
   }
 
-  // Step 2: Hard emergency red-flag triggers
-  if (checkEmergencyTrigger(rawText)) {
+  // Step 1: Normalization & Negative Cache Check
+  const normText = normalizeText(rawInput);
+  const textHash = hashNormalizedText(normText);
+  const activeSpecialties = await getCachedSpecialties();
+
+  const cachedNeg = negativeCache.get(textHash);
+  if (cachedNeg && Date.now() - cachedNeg < NEGATIVE_CACHE_TTL) {
+    return buildRejectionResponse(activeSpecialties, 'Câu hỏi của bạn nằm ngoài phạm vi tư vấn của phòng khám.');
+  }
+
+  // Step 2: Layer 1 Injection Heuristic
+  if (detectInjectionSignals(rawInput)) {
+    recordEscalation(sessionId);
+    negativeCache.set(textHash, Date.now());
+    return buildRejectionResponse(activeSpecialties, 'Yêu cầu không thuộc phạm vi điều hướng y tế của phòng khám.');
+  }
+
+  // Step 3: Hard Emergency check (Runs BEFORE LLM)
+  if (checkEmergencyTrigger(rawInput)) {
     return getEmergencyResponse();
   }
 
-  // Step 3: Operational Q&A from DB / Config
-  const opsAnswer = await answerClinicOperations(rawText);
+  // Step 4: Escalation rate limit check (>= 3 out of scope in 10 mins)
+  if (isEscalated(sessionId)) {
+    return buildRejectionResponse(
+      activeSpecialties,
+      'Bạn đã gửi nhiều câu hỏi ngoài phạm vi hỗ trợ. Vui lòng liên hệ trực tiếp hotline 1900 6868 nếu cần hỗ trợ khẩn cấp.',
+    );
+  }
+
+  // Step 5: Clinic Operations from DB
+  const opsAnswer = await answerClinicOperations(rawInput);
   if (opsAnswer) {
     return opsAnswer;
   }
 
-  // Step 4: Gemini AI Triage
-  const redactedMessage = redactPII(rawText);
-  let geminiResult = null;
+  // Step 6: Gemini AI Dynamic Triage
+  const redacted = redactPII(rawInput);
+  let llmResult = null;
   try {
-    geminiResult = await callGeminiTriage(redactedMessage, history);
+    llmResult = await callGeminiDynamicTriage(redacted, history);
   } catch (err) {
-    console.warn('[chatbot] Gemini triage call error:', err.message);
+    logger.warn({ err: err.message }, '[chatbot] Gemini dynamic triage exception');
   }
 
   let finalResponse = null;
 
-  if (geminiResult && geminiResult.answer) {
-    // If Gemini flagged emergency, verify with standard protocol
-    if (geminiResult.urgency === 'emergency') {
-      return getEmergencyResponse();
+  if (llmResult) {
+    const minConfidence = configService.chatMinConfidence || 0.55;
+
+    // Handle out-of-scope or unsafe
+    if (llmResult.intent === 'out_of_scope' || llmResult.intent === 'unsafe_request') {
+      recordEscalation(sessionId);
+      negativeCache.set(textHash, Date.now());
+      return buildRejectionResponse(activeSpecialties);
     }
 
-    const specialtyId = await resolveSpecialtyId(geminiResult.specialtyKey);
-    const suggestedSlots = specialtyId ? await getSuggestedSlotsForSpecialty(specialtyId, 3) : [];
+    // Handle specialty not available
+    if (llmResult.intent === 'specialty_not_available') {
+      return buildSpecialtyNotAvailableResponse(activeSpecialties);
+    }
 
-    finalResponse = {
-      urgency: geminiResult.urgency || 'routine',
-      intent: 'ai_triage',
-      specialtyId,
-      answer: geminiResult.answer,
-      redFlags: geminiResult.redFlags || [],
-      needsMoreInfo: Boolean(geminiResult.needsMoreInfo),
-      suggestedSlots,
-      actions: suggestedSlots.length > 0 ? [{ type: 'BOOK_SLOT', label: 'Đặt lịch với slot gợi ý' }] : [],
-    };
-  } else {
-    // Step 5: Rule-based fallback triage (No hardcoded drugs/dosages)
-    let matchedRule = null;
-    for (const rule of SPECIALTY_RULES) {
-      if (matchesWordBoundary(rawText, rule.patterns)) {
-        matchedRule = rule;
-        break;
+    // Handle symptom triage
+    if (llmResult.intent === 'symptom_triage') {
+      // Check confidence threshold
+      if ((llmResult.confidence || 0) < minConfidence && !llmResult.specialtyId) {
+        return buildRejectionResponse(activeSpecialties, 'Triệu chứng chưa rõ ràng để định vị chuyên khoa. Bạn có thể chọn một trong các chuyên khoa bên dưới hoặc đến khám Nội tổng quát.');
       }
-    }
 
-    if (matchedRule) {
-      const specialtyId = await resolveSpecialtyId(matchedRule.key);
-      const suggestedSlots = specialtyId ? await getSuggestedSlotsForSpecialty(specialtyId, 3) : [];
+      // Check emergency
+      if (llmResult.urgency === 'emergency') {
+        return getEmergencyResponse();
+      }
+
+      // Post-validation of LLM answer text
+      const isValid = validateAnswerContent(llmResult.answer, activeSpecialties);
+      let safeAnswer = llmResult.answer;
+
+      if (!isValid) {
+        // Replace with server-written template
+        const spec = activeSpecialties.find((s) => s.id === llmResult.specialtyId);
+        safeAnswer = spec
+          ? `Dựa trên triệu chứng bạn mô tả, chuyên khoa phù hợp để thăm khám là **${spec.name}**.\n\nVui lòng tham khảo ý kiến bác sĩ hoặc dược sĩ chuyên khoa trước khi sử dụng bất kỳ loại thuốc nào.`
+          : 'Dựa trên triệu chứng bạn mô tả, bạn nên đặt lịch khám để được bác sĩ chuyên khoa kiểm tra trực tiếp và tư vấn phác đồ điều trị an toàn.';
+      }
+
+      const suggestedSlots = llmResult.specialtyId
+        ? await getSuggestedSlotsForSpecialty(llmResult.specialtyId, 3)
+        : [];
 
       finalResponse = {
-        urgency: matchedRule.key === 'pediatrics' ? 'urgent' : 'routine',
-        intent: 'rule_triage',
-        specialtyId,
-        answer: matchedRule.advice,
+        urgency: llmResult.urgency || 'routine',
+        intent: 'symptom_triage',
+        specialtyId: llmResult.specialtyId,
+        confidence: llmResult.confidence,
+        answer: safeAnswer,
+        redFlags: llmResult.redFlags || [],
+        needsMoreInfo: Boolean(llmResult.needsMoreInfo),
+        followUpQuestion: llmResult.followUpQuestion || null,
         suggestedSlots,
         actions: suggestedSlots.length > 0 ? [{ type: 'BOOK_SLOT', label: 'Đặt lịch hẹn' }] : [],
       };
     } else {
-      // General medical query fallback
+      // Smalltalk / info / booking_help
       finalResponse = {
-        urgency: 'routine',
-        intent: 'general_inquiry',
-        specialtyId: null,
+        urgency: llmResult.urgency || 'info',
+        intent: llmResult.intent,
+        specialtyId: llmResult.specialtyId,
+        confidence: llmResult.confidence,
+        answer: llmResult.answer || 'Tôi có thể hỗ trợ điều hướng chuyên khoa và đặt lịch khám cho bạn.',
         suggestedSlots: [],
-        actions: [{ type: 'NAVIGATE', label: 'Xem danh sách chuyên khoa', value: '/specialties' }],
-        answer: `Cảm ơn bạn đã chia sẻ. Để có đánh giá chính xác nhất về tình trạng sức khỏe, bạn nên đến trực tiếp phòng khám để bác sĩ chuyên khoa thăm khám.\n\nNếu bạn có các dấu hiệu bất thường như sốt cao, đau nhiều hoặc mệt mỏi, xin vui lòng đến cơ sở y tế gần nhất.\n\n*Thông tin tư vấn mang tính chất tham khảo, không thay thế việc khám chữa bệnh trực tiếp với bác sĩ.*`,
+        actions: [],
       };
     }
   }
 
-  // Safety post-validation: strip any dangerous code or unintended dosages if present
-  if (finalResponse.answer) {
-    // Ensure medical disclaimer exists
-    if (!finalResponse.answer.includes('không thay thế')) {
-      finalResponse.answer += '\n\n*Thông tin tham khảo, không thay thế chẩn đoán của bác sĩ.*';
+  // Step 7: Fallback rule-based if Gemini was null or failed
+  if (!finalResponse) {
+    const fallbackMatch = ruleBasedDynamicFallback(normText, activeSpecialties);
+
+    if (fallbackMatch?.isUnavailable) {
+      return buildSpecialtyNotAvailableResponse(activeSpecialties);
     }
+
+    if (fallbackMatch?.specialtyId) {
+      const suggestedSlots = await getSuggestedSlotsForSpecialty(fallbackMatch.specialtyId, 3);
+      finalResponse = {
+        urgency: 'routine',
+        intent: 'symptom_triage',
+        specialtyId: fallbackMatch.specialtyId,
+        confidence: 0.75,
+        answer: `Dựa trên triệu chứng bạn chia sẻ, bạn nên đặt lịch khám tại chuyên khoa **${fallbackMatch.specialtyName}** để được bác sĩ kiểm tra và tư vấn kỹ càng.`,
+        suggestedSlots,
+        actions: suggestedSlots.length > 0 ? [{ type: 'BOOK_SLOT', label: 'Đặt lịch hẹn' }] : [],
+      };
+    } else {
+      // General Inquiry Fallback
+      finalResponse = {
+        urgency: 'routine',
+        intent: 'general_inquiry',
+        specialtyId: null,
+        confidence: 0.5,
+        suggestedSlots: [],
+        actions: [{ type: 'NAVIGATE', label: 'Xem danh sách chuyên khoa', value: '/specialties' }],
+        answer: 'Cảm ơn bạn đã liên hệ. Để có đánh giá chuẩn xác nhất, bạn vui lòng cung cấp thêm thông tin triệu chứng hoặc đặt lịch khám để được bác sĩ tư vấn trực tiếp.',
+      };
+    }
+  }
+
+  // Ensure mandatory medical disclaimer
+  if (finalResponse.answer && !finalResponse.answer.includes('không thay thế')) {
+    finalResponse.answer += '\n\n*Thông tin mang tính tham khảo, không thay thế chẩn đoán bác sĩ.*';
   }
 
   return finalResponse;
@@ -265,9 +378,9 @@ async function processChatMessage({ message, history = [], sessionId = '' }) {
 
 module.exports = {
   processChatMessage,
-  // Backwards compatibility
-  answerQuestion: async (text) => {
-    const res = await processChatMessage({ message: text });
-    return res.answer;
-  },
+  validateAnswerContent,
+  ruleBasedDynamicFallback,
+  buildSpecialtyNotAvailableResponse,
+  buildRejectionResponse,
+  normalizeText,
 };

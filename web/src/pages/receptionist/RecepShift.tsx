@@ -4,6 +4,7 @@ import { http } from "../../api/http";
 import { fetchDoctorsAll, type Doctor } from "../../api/doctor";
 import { fetchByShift } from "../../api/appointment";
 import type { Appointment } from "../../api/appointment";
+import { statusLabel, normStatus } from "../../components/appointment/AppointmentStatus";
 import "../../styles/shift.css";
 
 type ShiftType = "MORNING" | "AFTERNOON" | "EVENING" | string;
@@ -38,9 +39,9 @@ type TableRow = {
 };
 
 const SHIFT_LABEL: Record<string, string> = {
-  MORNING: "Morning",
-  AFTERNOON: "Afternoon",
-  EVENING: "Evening",
+  MORNING: "Ca Sáng (08:00 - 12:00)",
+  AFTERNOON: "Ca Chiều (13:00 - 17:00)",
+  EVENING: "Ca Tối (18:00 - 21:00)",
 };
 
 function toISODateInput(d: Date): string {
@@ -286,7 +287,7 @@ export default function RecepShift() {
       {/* Filter Bar */}
       <div className="shift-filterbar">
         <div className="left">
-          <h5 className="title">Daily Shifts</h5>
+          <h5 className="title">Lịch trực theo ngày</h5>
         </div>
 
         <div className="right">
@@ -301,7 +302,7 @@ export default function RecepShift() {
             value={selectedDoctorId}
             onChange={(e) => setSelectedDoctorId(e.target.value)}
           >
-            <option value="">-- All doctors --</option>
+            <option value="">-- Tất cả bác sĩ --</option>
             {doctors.map((d) => (
               <option key={d.id} value={String(d.id)}>
                 {d.fullName} {d.specialtyName ? `- ${d.specialtyName}` : ""}
@@ -310,7 +311,7 @@ export default function RecepShift() {
           </Form.Select>
 
           <Button variant="outline-secondary" onClick={onClearDoctorFilter} disabled={loading}>
-            Reset
+            Đặt lại
           </Button>
         </div>
       </div>
@@ -331,17 +332,17 @@ export default function RecepShift() {
           <table className="shift-table table table-bordered align-middle">
             <thead>
               <tr>
-                <th className="col-shift">Shift</th>
-                <th className="col-spec">Specialty</th>
-                <th className="col-doctor">Doctor</th>
-                <th className="col-day">Appointments</th>
+                <th className="col-shift">Ca khám</th>
+                <th className="col-spec">Chuyên khoa</th>
+                <th className="col-doctor">Bác sĩ</th>
+                <th className="col-day">Danh sách lịch hẹn</th>
               </tr>
             </thead>
             <tbody>
               {tableRows.length === 0 && (
                 <tr>
                   <td colSpan={4} className="text-center">
-                    {loading ? "Loading..." : "No data"}
+                    {loading ? "Đang tải..." : "Chưa có ca làm việc nào"}
                   </td>
                 </tr>
               )}
@@ -407,15 +408,17 @@ function AppointmentChip({
   patient?: string;
   status?: string;
 }) {
+  const uiStatus = normStatus(status);
   const s = String(status || "").toLowerCase().replace(/_/g, "-");
   const cls = s ? `appt appt-${s}` : "appt appt-default";
+  const displayStatus = statusLabel[uiStatus] || status || "-";
   return (
-    <div className={cls} title={status || ""}>
+    <div className={cls} title={displayStatus}>
       <span className="appt-left">
         <span className="time">{(time || "--:--").slice(0, 5)}</span>
-        <span className="patient">{patient || "Patient"}</span>
+        <span className="patient">{patient || "Bệnh nhân"}</span>
       </span>
-      <span className="status">{status || "-"}</span>
+      <span className="status">{displayStatus}</span>
     </div>
   );
 }

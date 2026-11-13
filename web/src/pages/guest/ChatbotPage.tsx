@@ -39,7 +39,7 @@ export default function ChatbotPage() {
     scrollToBottom();
   }, [messages, isLoading]);
 
-  const handleSelectSlot = (slot: SuggestedSlot, specialtyId?: number | null) => {
+  const handleSelectSlot = (slot: SuggestedSlot, specialtyId?: number | null, userSymptoms?: string) => {
     // Populate AppointmentContext
     if (specialtyId) {
       dispatch({ type: 'SET_SPECIALTY', id: specialtyId, name: slot.specialtyName });
@@ -58,6 +58,12 @@ export default function ChatbotPage() {
       slotEndTime: slot.endTime,
       slotNumber: slot.slotNumber,
     });
+    if (userSymptoms) {
+      sessionStorage.setItem('appointment_intake_draft', JSON.stringify({
+        symptoms: userSymptoms,
+        source: 'chatbot',
+      }));
+    }
     dispatch({ type: 'SET_STEP', step: 3 }); // Advance directly to patient info step
     navigate('/booking');
   };
@@ -142,6 +148,11 @@ export default function ChatbotPage() {
           </button>
         </div>
 
+        {/* Chế độ Demo Disclaimer (PART 0) */}
+        <div className="bg-warning-subtle text-dark px-3 py-1.5 text-center small border-bottom" style={{ fontSize: '12px', fontWeight: 500 }}>
+          ⚠️ Bản demo học thuật, dùng dữ liệu giả, không thay thế bác sĩ.
+        </div>
+
         {/* Chat Area */}
         <div className="cb-chat-area" role="log" aria-live="polite">
           {messages.map((message) => (
@@ -194,7 +205,10 @@ export default function ChatbotPage() {
                           key={`${slot.shiftId}-${slot.slotId}`}
                           type="button"
                           className="btn btn-outline-primary btn-sm text-start"
-                          onClick={() => handleSelectSlot(slot, message.suggestedSlots?.[0]?.shiftId)}
+                          onClick={() => {
+                            const lastUserMsg = [...messages].reverse().find((m) => m.isUser);
+                            handleSelectSlot(slot, message.suggestedSlots?.[0]?.shiftId, lastUserMsg?.text);
+                          }}
                         >
                           <div className="fw-bold">{slot.date} | {slot.startTime} - {slot.endTime}</div>
                           <div className="small text-muted">{slot.doctorName}</div>

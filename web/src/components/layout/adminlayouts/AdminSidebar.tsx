@@ -36,35 +36,39 @@ export default function AdminSidebar() {
         <Nav className="menu">
           <Nav.Link as={NavLink} to="/admin/dashboard" end className="item">
             <span className="icon">{Icon.overview}</span>
-            Overview
+            Tổng quan
           </Nav.Link>
           <Nav.Link as={NavLink} to="/admin/doctors" className="item">
             <span className="icon">{Icon.doctor}</span>
-            Doctor
+            Bác sĩ
           </Nav.Link>
           <Nav.Link as={NavLink} to="/admin/shifts" className="item">
             <span className="icon">{Icon.event}</span>
-            Shift
+            Ca làm việc
+          </Nav.Link>
+          <Nav.Link as={NavLink} to="/admin/shift-cancellations" className="item">
+            <span className="icon">{Icon.event}</span>
+            Duyệt hủy ca
           </Nav.Link>
           <Nav.Link as={NavLink} to="/admin/receptionists" className="item">
             <span className="icon">{Icon.staff}</span>
-            Receptionist
+            Lễ tân
           </Nav.Link>
           <Nav.Link as={NavLink} to="/admin/specialties" className="item">
             <span className="icon">{Icon.tag}</span>
-            Specialties
+            Chuyên khoa
           </Nav.Link>
           <Nav.Link as={NavLink} to="/admin/news" className="item">
             <span className="icon">{Icon.news}</span>
-            News
+            Tin tức
           </Nav.Link>
           <Nav.Link as={NavLink} to="/admin/events" className="item">
             <span className="icon">{Icon.event}</span>
-            Event
+            Sự kiện
           </Nav.Link>
           <Nav.Link as={NavLink} to="/admin/vouchers" className="item">
             <span className="icon">{Icon.voucher}</span>
-            Voucher
+            Phiếu giảm giá
           </Nav.Link>
           <Nav.Link as={NavLink} to="/admin/feedbacks" className="item">
             <span className="icon">{Icon.feedback}</span>

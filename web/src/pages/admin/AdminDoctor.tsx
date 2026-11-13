@@ -519,13 +519,13 @@ export default function AdminDoctor() {
         <Col xs="12" md="6" className="d-flex align-items-center gap-2">
           <DropdownButton
             id="sort-doctors"
-            title={`Sort: ${
-              sortKey === "all" ? "All" : `By Specialty (${specName})`
+            title={`Lọc: ${
+              sortKey === "all" ? "Tất cả" : `Theo chuyên khoa (${specName})`
             }`}
             variant="light"
           >
             <Dropdown.Item active={sortKey === "all"} onClick={handleSortAll}>
-              All (default)
+              Tất cả (mặc định)
             </Dropdown.Item>
 
             <Dropdown.Item />
@@ -535,7 +535,7 @@ export default function AdminDoctor() {
               onChange={(e) => handleSortBySpecialty(Number(e.target.value))}
             >
               <option value={0} disabled>
-                Select specialty
+                Chọn chuyên khoa
               </option>
               {specialties.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -560,7 +560,7 @@ export default function AdminDoctor() {
               });
             }}
           >
-            + Create Doctor
+            + Thêm bác sĩ
           </Button>
         </Col>
       </Row>
@@ -606,7 +606,7 @@ export default function AdminDoctor() {
                           navigate(`/admin/doctors/${d.id}`);
                         }}
                       >
-                        Detail
+                        Chi tiết
                       </Button>
                       <Button
                         size="sm"
@@ -616,7 +616,7 @@ export default function AdminDoctor() {
                           navigate(`/admin/update-doctor/${d.id}`);
                         }}
                       >
-                        Update
+                        Cập nhật
                       </Button>
                     </div>
                   </div>
@@ -624,7 +624,7 @@ export default function AdminDoctor() {
                     {d.email || "—"} · {d.phoneNumber || "—"}
                   </div>
                   <Card.Text className="text-muted flex-grow-1">
-                    Specialty:{" "}
+                    Chuyên khoa:{" "}
                     {d.specialtyName ??
                       (d.specialtyId ? `#${d.specialtyId}` : "—")}
                   </Card.Text>

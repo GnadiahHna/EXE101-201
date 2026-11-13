@@ -51,3 +51,4 @@ notificationSchema.plugin(baseSchemaPlugin, {
 const Notification = mongoose.model('Notification', notificationSchema, 'notifications');
 
 module.exports = Notification;
+

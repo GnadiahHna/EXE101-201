@@ -22,6 +22,7 @@ import {
   checkinAppointment,
   cancelAppointment,
   rescheduleAppointment,
+  markNoShowAppointment,
 } from "../../api/appointment";
 
 import AppointmentStatus from "../../components/appointment/AppointmentStatus";
@@ -100,7 +101,7 @@ export default function RecepAppointment() {
     setLoading(true);
     const res = await confirmAppointment(id);
     if (res.ok) await loadAppointments(status, date);
-    else setError(res.error || "Confirm failed");
+    else setError(res.error || "Xác nhận lịch hẹn thất bại");
     setViewItem(null);
     setLoading(false);
   };
@@ -109,7 +110,7 @@ export default function RecepAppointment() {
     setLoading(true);
     const res = await checkinAppointment(id);
     if (res.ok) await loadAppointments(status, date);
-    else setError(res.error || "Check-in failed");
+    else setError(res.error || "Điểm danh (Check-in) thất bại");
     setViewItem(null);
     setLoading(false);
   };
@@ -136,6 +137,16 @@ export default function RecepAppointment() {
     } else {
       setError(res.error || "Hủy lịch hẹn thất bại.");
     }
+    setLoading(false);
+  };
+
+  const handleMarkNoShow = async (id: number) => {
+    if (!window.confirm("Bạn có chắc chắn muốn đánh dấu bệnh nhân Vắng mặt (Không đến)?")) return;
+    setLoading(true);
+    const res = await markNoShowAppointment(id);
+    if (res.ok) await loadAppointments(status, date);
+    else setError(res.error || "Cập nhật trạng thái vắng mặt thất bại");
+    setViewItem(null);
     setLoading(false);
   };
 
@@ -291,12 +302,12 @@ export default function RecepAppointment() {
       {/* ---------- FILTER BAR ---------- */}
       <Row className="filters g-2">
         <Col lg={3} md={6}>
-          <Form.Label>Status</Form.Label>
+          <Form.Label>Trạng thái</Form.Label>
           <Form.Select
             value={status}
             onChange={(e) => setStatus(e.target.value as UiStatus | "ALL")}
           >
-            <option value="ALL">All</option>
+            <option value="ALL">Tất cả</option>
             {STATUS_OPTIONS.map((s) => (
               <option key={s} value={s}>
                 {statusLabel[s]}
@@ -306,12 +317,12 @@ export default function RecepAppointment() {
         </Col>
 
         <Col lg={3} md={6}>
-          <Form.Label>Specialty</Form.Label>
+          <Form.Label>Chuyên khoa</Form.Label>
           <Form.Select
             value={specialty}
             onChange={(e) => setSpecialty(e.target.value)}
           >
-            <option value="ALL">All specialties</option>
+            <option value="ALL">Tất cả chuyên khoa</option>
             {specialties.map((sp) => (
               <option key={sp} value={sp}>
                 {sp}
@@ -321,7 +332,7 @@ export default function RecepAppointment() {
         </Col>
 
         <Col lg={3} md={6}>
-          <Form.Label>Date</Form.Label>
+          <Form.Label>Ngày khám</Form.Label>
           <Form.Control
             type="date"
             value={date}
@@ -330,15 +341,15 @@ export default function RecepAppointment() {
         </Col>
 
         <Col lg={3} md={6}>
-          <Form.Label>Search</Form.Label>
+          <Form.Label>Tìm kiếm</Form.Label>
           <InputGroup>
             <Form.Control
-              placeholder="Search by patient or doctor..."
+              placeholder="Tìm theo tên bệnh nhân hoặc bác sĩ..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
             <Button variant="outline-secondary" onClick={() => setSearch("")}>
-              Clear
+              Xóa
             </Button>
           </InputGroup>
         </Col>
@@ -355,31 +366,31 @@ export default function RecepAppointment() {
       {/* ---------- TABLE ---------- */}
       <div className="table-card">
         <div className="table-title">
-          <h6>Appointments List</h6>
+          <h6>Danh sách lịch hẹn</h6>
         </div>
 
         <Table responsive hover className="appt-table align-middle">
           <thead>
             <tr>
-              <th>DATE - TIME</th>
-              <th>PATIENT</th>
-              <th>DOCTOR</th>
-              <th>SPECIALTY</th>
-              <th>STATUS</th>
-              <th>ACTION</th>
+              <th>NGÀY & GIỜ KHÁM</th>
+              <th>BỆNH NHÂN</th>
+              <th>BÁC SĨ</th>
+              <th>CHUYÊN KHOA</th>
+              <th>TRẠNG THÁI</th>
+              <th>THAO TÁC</th>
             </tr>
           </thead>
 
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={6}>Loading...</td>
+                <td colSpan={6}>Đang tải...</td>
               </tr>
             )}
 
             {!loading && paged.length === 0 && (
               <tr>
-                <td colSpan={6}>No appointments found</td>
+                <td colSpan={6}>Không tìm thấy lịch hẹn nào</td>
               </tr>
             )}
 
@@ -420,19 +431,19 @@ export default function RecepAppointment() {
       <Modal show={!!viewItem} onHide={() => setViewItem(null)} centered size="lg">
         <Modal.Header closeButton>
           <Modal.Title>
-            Appointment #{viewItem?.appointmentNo || viewItem?.id}
+            Chi tiết lịch hẹn #{viewItem?.appointmentNo || viewItem?.id}
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {viewItem && (
             <div className="detail-grid">
-              <Detail label="Date">
+              <Detail label="Ngày khám">
                 {viewItem.appointmentDate} {viewItem.appointmentTime}
               </Detail>
-              <Detail label="Patient">{viewItem.patientName}</Detail>
-              <Detail label="Doctor">{viewItem.doctorName}</Detail>
-              <Detail label="Specialty">{viewItem.specialtyName}</Detail>
-              <Detail label="Type">
+              <Detail label="Bệnh nhân">{viewItem.patientName}</Detail>
+              <Detail label="Bác sĩ">{viewItem.doctorName}</Detail>
+              <Detail label="Chuyên khoa">{viewItem.specialtyName}</Detail>
+              <Detail label="Hình thức">
                 {viewItem.type ? (
                   <span className={`badge ${viewItem.type === "ONLINE" ? "bg-info" : "bg-secondary"}`}>
                     {viewItem.type === "ONLINE" ? "Online" : "Offline"}
@@ -441,11 +452,11 @@ export default function RecepAppointment() {
                   "—"
                 )}
               </Detail>
-              <Detail label="Status">
+              <Detail label="Trạng thái">
                 <AppointmentStatus status={viewItem.status} withBadge={false} />
               </Detail>
               {viewItem.reason && (
-                <Detail label="Reason">{viewItem.reason}</Detail>
+                <Detail label="Lý do khám">{viewItem.reason}</Detail>
               )}
             </div>
           )}
@@ -455,13 +466,13 @@ export default function RecepAppointment() {
             {viewItem?.status === "PENDING_CONFIRM" && (
               <>
                 <Button onClick={() => handleConfirm(viewItem.id)}>
-                  Confirm
+                  Xác nhận
                 </Button>
                 <Button
                   variant="outline-danger"
                   onClick={() => handleOpenCancelModal(viewItem.id)}
                 >
-                  Cancel
+                  Hủy lịch
                 </Button>
               </>
             )}
@@ -472,19 +483,36 @@ export default function RecepAppointment() {
                   variant="success"
                   onClick={() => handleCheckin(viewItem.id)}
                 >
-                  Check in
+                  Đã có mặt (Check in)
                 </Button>
                 <Button
                   variant="outline-secondary"
                   onClick={() => handleOpenReschedule(viewItem.id)}
                 >
-                  Reschedule
+                  Đổi lịch (Reschedule)
                 </Button>
                 <Button
                   variant="outline-danger"
                   onClick={() => handleOpenCancelModal(viewItem.id)}
                 >
-                  Cancel
+                  Hủy lịch
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={() => handleMarkNoShow(viewItem.id)}
+                >
+                  Vắng mặt (No-show)
+                </Button>
+              </>
+            )}
+
+            {viewItem?.status === "CHECK_IN" && (
+              <>
+                <Button
+                  variant="danger"
+                  onClick={() => handleMarkNoShow(viewItem.id)}
+                >
+                  Vắng mặt (No-show)
                 </Button>
               </>
             )}
@@ -495,19 +523,19 @@ export default function RecepAppointment() {
                   variant="success"
                   onClick={() => handleCheckin(viewItem.id)}
                 >
-                  Check in
+                  Đã có mặt (Check in)
                 </Button>
                 <Button
                   variant="outline-secondary"
                   onClick={() => handleOpenReschedule(viewItem.id)}
                 >
-                  Reschedule
+                  Đổi lịch (Reschedule)
                 </Button>
                 <Button
                   variant="outline-danger"
                   onClick={() => handleOpenCancelModal(viewItem.id)}
                 >
-                  Cancel
+                  Hủy lịch
                 </Button>
               </>
             )}
@@ -518,7 +546,18 @@ export default function RecepAppointment() {
                   variant="primary"
                   onClick={() => handleOpenReschedule(viewItem.id)}
                 >
-                  Reschedule
+                  Đổi lịch mới
+                </Button>
+              </>
+            )}
+
+            {viewItem?.status === "EXPIRED" && (
+              <>
+                <Button
+                  variant="primary"
+                  onClick={() => handleOpenReschedule(viewItem.id)}
+                >
+                  Đổi lịch mới (Đặt lại)
                 </Button>
               </>
             )}

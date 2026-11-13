@@ -146,6 +146,33 @@ const create = async (actor, shiftId, input = {}) => {
       status: 'PENDING',
     });
 
+    // Bắn chuông thông báo cho Lễ tân và Quản trị viên theo Phương án 1
+    try {
+      const { notificationService } = require('./notification.service');
+      const shiftName = shift.shift === 'MORNING' ? 'Sáng' : shift.shift === 'AFTERNOON' ? 'Chiều' : 'Tối';
+      const doctorDisplayName = actor.fullName || 'Bác sĩ';
+      
+      const notifPayload = {
+        title: 'Yêu cầu hủy ca trực mới từ Bác sĩ',
+        message: `${doctorDisplayName} vừa gửi yêu cầu hủy ca ${shiftName} ngày ${shift.date}. Lý do: ${reason}. (Ảnh hưởng ${affectedCount} lịch hẹn).`,
+        type: 'SYSTEM',
+        link: '/receptionist/shift',
+        metadata: {
+          requestId: request.id || request._id,
+          shiftId: shift.id,
+          doctorId: shift.doctorId,
+          affectedCount,
+        },
+      };
+
+      await Promise.all([
+        notificationService.broadcastToRole({ role: 'RECEPTIONIST', ...notifPayload }),
+        notificationService.broadcastToRole({ role: 'ADMIN', ...notifPayload }),
+      ]);
+    } catch (notifErr) {
+      console.warn('[shiftCancellation] Failed to notify receptionists/admins:', notifErr.message);
+    }
+
     return serializeRequest(request, actor.fullName);
   } catch (error) {
     if (error.code === 11000) {
@@ -356,24 +383,14 @@ const approveRequest = async (actor, requestId, options = {}) => {
     throw new ApiError(409, 'Trạng thái yêu cầu hủy ca đã thay đổi hoặc không còn ở trạng thái PENDING', 'CONCURRENT_CONFLICT');
   }
 
-  // Atomically cancel shift & cancel remaining unbooked (AVAILABLE) slots
-  await DoctorShift.updateOne(
-    { id: shift.id },
-    {
-      $set: {
-        status: SHIFT_STATUSES.CANCELLED || 'CANCELLED',
-        'slots.$[elem].status': 'CANCELLED',
-      },
-    },
-    {
-      arrayFilters: [{ 'elem.status': 'AVAILABLE' }],
-    },
-  );
+  // Atomically delete the DoctorShift document so the slot becomes empty and can be registered again
+  // Or if appointments exist (none active), removing or archiving it.
+  await DoctorShift.deleteOne({ id: shift.id });
 
   // Outbox notification for doctor
   await outboxService.recordEvent({
     eventType: 'SHIFT_CANCELLATION_APPROVED',
-    channel: 'EMAIL',
+    channel: 'WEBSOCKET',
     payload: {
       recipient: `doctor_${shift.doctorId}`,
       shiftId: shift.id,
@@ -385,6 +402,44 @@ const approveRequest = async (actor, requestId, options = {}) => {
       decisionNote: note,
     },
   });
+
+  // Bắn chuông thông báo cho Bác sĩ biết yêu cầu hủy ca đã được duyệt
+  try {
+    const { notificationService } = require('./notification.service');
+    await notificationService.notifyUser({
+      userId: shift.doctorId,
+      title: 'Yêu cầu hủy ca làm việc đã được duyệt',
+      message: `Yêu cầu hủy ca trực ngày ${shift.date} của bạn đã được phê duyệt thành công.${note ? ` Ghi chú: ${note}` : ''}`,
+      type: 'SYSTEM',
+      link: '/doctor/shifts',
+      metadata: {
+        shiftId: shift.id,
+        shiftDate: shift.date,
+      },
+      sendEmail: false,
+    });
+
+    // Bắn chuông thông báo cho tất cả bệnh nhân có lịch bị ảnh hưởng
+    if (activeAppointments.length > 0) {
+      for (const appt of activeAppointments) {
+        await notificationService.notifyUser({
+          userId: appt.patientId,
+          title: 'Ca trực bác sĩ có thay đổi đột xuất',
+          message: `Lịch hẹn #${appt.appointmentNo} vào ngày ${shift.date} bị ảnh hưởng do bác sĩ hủy ca trực. Phòng khám sẽ liên hệ để hỗ trợ sắp xếp lại lịch khám sớm nhất cho bạn.`,
+          type: 'STATUS_CHANGE',
+          link: '/patient/appointments',
+          metadata: {
+            appointmentId: appt.id,
+            appointmentNo: appt.appointmentNo,
+            shiftDate: shift.date,
+          },
+          sendEmail: false,
+        });
+      }
+    }
+  } catch (notifErr) {
+    console.warn('[shiftCancellation] Failed to notify doctor/patients:', notifErr.message);
+  }
 
   // Outbox notification for affected patients if auto cancelled
   if (effectivePolicy === 'AUTO_CANCEL_AFFECTED' && activeAppointments.length > 0) {

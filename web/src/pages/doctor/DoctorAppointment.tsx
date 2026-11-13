@@ -18,8 +18,11 @@ import {
   paginate,
   type Appointment,
   fetchByShifts,
+  fetchDetail,
   startAppointment as apiStartAppointment,
   completeAppointment as apiCompleteAppointment,
+  cancelAppointment,
+  rescheduleAppointment,
 } from "../../api/appointment";
 import { getPrescriptionsByAppointment, type Prescription as PrescriptionType } from "../../api/prescription";
 
@@ -27,7 +30,7 @@ import AppointmentStatus from "../../components/appointment/AppointmentStatus";
 import type { UiStatus } from "../../components/appointment/AppointmentStatus";
 import { normStatus, STATUS_OPTIONS, statusLabel, statusTone } from "../../components/appointment/AppointmentStatus";
 
-import { fetchMyShifts, type DoctorShift } from "../../api/shift";
+import { fetchMyShifts, fetchShiftsByDoctorAndDate, type DoctorShift, type DoctorShiftSlot } from "../../api/shift";
 import "../../styles/appointmentlist.css";
 import Paging from "../../components/common/Paging";
 
@@ -51,7 +54,23 @@ export default function DoctorAppointment() {
   const [addedPrescription, setAddedPrescription] = useState<boolean>(false);
   const [prescriptions, setPrescriptions] = useState<PrescriptionType[]>([]);
   const [loadingSummary, setLoadingSummary] = useState<boolean>(false);
-  const [intakeSummary, setIntakeSummary] = useState<{ summary?: string; bullets?: string[]; verifiedDisclaimer?: string } | null>(null);
+  const [intakeSummary, setIntakeSummary] = useState<{ summary?: string; bullets?: string[]; verifiedDisclaimer?: string; source?: string; generatedAt?: string } | null>(null);
+
+  // Reschedule Modal
+  type DoctorShiftWithSlots = DoctorShift & { availableSlotsCount?: number };
+  const [showRescheduleModal, setShowRescheduleModal] = useState<boolean>(false);
+  const [rescheduleAppointmentId, setRescheduleAppointmentId] = useState<number | null>(null);
+  const [rescheduleDoctorId, setRescheduleDoctorId] = useState<number | null>(null);
+  const [availableShifts, setAvailableShifts] = useState<DoctorShiftWithSlots[]>([]);
+  const [selectedShiftId, setSelectedShiftId] = useState<number | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState<string>(() => toISODateInput(new Date()));
+  const [loadingShifts, setLoadingShifts] = useState<boolean>(false);
+  const [rescheduleReason, setRescheduleReason] = useState<string>("Bác sĩ điều chỉnh lịch hẹn");
+
+  // Cancel Modal
+  const [showCancelModal, setShowCancelModal] = useState<boolean>(false);
+  const [cancelAppointmentId, setCancelAppointmentId] = useState<number | null>(null);
+  const [cancelReason, setCancelReason] = useState<string>("Bác sĩ bận lịch đột xuất");
 
   // Paging (nếu muốn hiển thị nhiều trang, bạn có thể bật Paging bên dưới)
   const [page, setPage] = useState<number>(1);
@@ -201,6 +220,120 @@ export default function DoctorAppointment() {
     }
   };
 
+  /* ---- Cancel appointment by Doctor ---- */
+  const handleOpenCancelModal = (id: number) => {
+    setCancelAppointmentId(id);
+    setCancelReason("Bác sĩ bận lịch đột xuất");
+    setShowCancelModal(true);
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancelAppointmentId) return;
+    if (!cancelReason.trim()) {
+      setError("Vui lòng nhập lý do hủy lịch hẹn.");
+      return;
+    }
+    setLoading(true);
+    const res = await cancelAppointment(cancelAppointmentId, cancelReason.trim());
+    if (res.ok) {
+      await reloadAfterAction();
+      setShowCancelModal(false);
+      setCancelAppointmentId(null);
+      setViewItem(null);
+    } else {
+      setError(res.error || "Hủy lịch hẹn thất bại.");
+    }
+    setLoading(false);
+  };
+
+  /* ---- Reschedule appointment by Doctor ---- */
+  const loadAvailableShifts = async (targetDate: string, docId?: number) => {
+    setLoadingShifts(true);
+    setError("");
+    try {
+      const list = docId
+        ? await fetchShiftsByDoctorAndDate(docId, targetDate)
+        : await fetchMyShifts(undefined, targetDate);
+
+      const mapped = (list || []).map((s) => {
+        const rawSlots = Array.isArray(s.slots) ? (s.slots as DoctorShiftSlot[]) : [];
+        const availableCount = rawSlots.filter((slot) => {
+          const st = (slot.status ?? slot.slotStatus ?? "").toUpperCase();
+          return st === "AVAILABLE" || st === "FREE";
+        }).length;
+        return {
+          ...s,
+          slots: rawSlots,
+          availableSlotsCount: availableCount,
+        };
+      });
+      setAvailableShifts(mapped);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Failed to load available shifts";
+      setError(message);
+      setAvailableShifts([]);
+    } finally {
+      setLoadingShifts(false);
+    }
+  };
+
+  const handleOpenReschedule = async (id: number) => {
+    setError("");
+    setRescheduleAppointmentId(id);
+    setSelectedShiftId(null);
+    setRescheduleDate(date);
+    setRescheduleReason("Bác sĩ điều chỉnh lịch hẹn");
+    setShowRescheduleModal(true);
+    setLoading(true);
+
+    try {
+      const detailRes = await fetchDetail(id);
+      let docId = detailRes.data?.doctorId;
+      if (!docId) {
+        const appt = appointments.find((a) => a.id === id);
+        docId = appt?.doctorId;
+      }
+      if (docId) {
+        setRescheduleDoctorId(docId);
+        await loadAvailableShifts(date, docId);
+      } else {
+        await loadAvailableShifts(date);
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Không thể tải thông tin appointment";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReschedule = async () => {
+    if (!rescheduleAppointmentId || !selectedShiftId) {
+      setError("Vui lòng chọn ca trực mới để dời lịch");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const res = await rescheduleAppointment(rescheduleAppointmentId, selectedShiftId, undefined, rescheduleReason);
+      if (res.ok) {
+        await reloadAfterAction();
+        setShowRescheduleModal(false);
+        setViewItem(null);
+        setRescheduleAppointmentId(null);
+        setSelectedShiftId(null);
+        setRescheduleDoctorId(null);
+      } else {
+        setError(res.error || "Điều chỉnh lịch hẹn thất bại");
+      }
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Điều chỉnh lịch hẹn thất bại";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   /* ============================== Render ============================== */
   return (
     <div className="recep-wrap">
@@ -316,15 +449,15 @@ export default function DoctorAppointment() {
       {/* ---- Modal (Detail + Actions) ---- */}
       <Modal show={!!viewItem} onHide={() => setViewItem(null)} centered size="lg">
         <Modal.Header closeButton>
-          <Modal.Title>Appointment #{viewItem?.appointmentNo || viewItem?.id}</Modal.Title>
+          <Modal.Title>Chi tiết lịch hẹn #{viewItem?.appointmentNo || viewItem?.id}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {viewItem && (
             <div className="detail-grid">
-              <Detail label="Date">{viewItem.appointmentDate}</Detail>
-              <Detail label="Time">{viewItem.appointmentTime}</Detail>
-              <Detail label="Patient">{viewItem.patientName}</Detail>
-              <Detail label="Type">
+              <Detail label="Ngày khám">{viewItem.appointmentDate}</Detail>
+              <Detail label="Giờ khám">{viewItem.appointmentTime}</Detail>
+              <Detail label="Bệnh nhân">{viewItem.patientName}</Detail>
+              <Detail label="Hình thức">
                 {viewItem.type ? (
                   <span className={`badge ${viewItem.type === "ONLINE" ? "bg-info" : "bg-secondary"}`}>
                     {viewItem.type === "ONLINE" ? "Online" : "Offline"}
@@ -333,42 +466,75 @@ export default function DoctorAppointment() {
                   "—"
                 )}
               </Detail>
-              <Detail label="Status">
+              <Detail label="Trạng thái">
                 <AppointmentStatus status={normStatus(viewItem.status)} withBadge={false} />
               </Detail>
-              {viewItem.reason && <Detail label="Reason">{viewItem.reason}</Detail>}
+              {viewItem.reason && <Detail label="Lý do khám">{viewItem.reason}</Detail>}
 
               {/* Patient Intake Information Card */}
               <div className="mt-3 p-3 border rounded bg-light">
+                <div className="alert alert-warning py-1 px-2 mb-2 small text-dark d-flex align-items-center">
+                  <span className="me-2">⚠️</span>
+                  <span><strong>Chế độ thử nghiệm:</strong> Bản demo học thuật, dùng dữ liệu giả, không thay thế bác sĩ.</span>
+                </div>
                 <div className="d-flex justify-content-between align-items-center mb-2">
                   <h6 className="mb-0 fw-bold">Thông tin Tiền Khám (Medical Intake):</h6>
-                  <Button
-                    size="sm"
-                    variant="outline-info"
-                    disabled={loadingSummary}
-                    onClick={async () => {
-                      if (!viewItem) return;
-                      setLoadingSummary(true);
-                      try {
-                        const res = await (await import("../../api/http")).http.post(
-                          `/doctor/appointments/${viewItem.id}/intake-summary`
-                        );
-                        setIntakeSummary(res.data?.data || res.data);
-                      } catch (err: any) {
-                        alert(err.response?.data?.message || "Không thể tạo tóm tắt AI.");
-                      } finally {
-                        setLoadingSummary(false);
-                      }
-                    }}
-                  >
-                    {loadingSummary ? "Đang xử lý..." : "✨ Tóm tắt tiền khám AI"}
-                  </Button>
+                  <div className="d-flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline-info"
+                      disabled={loadingSummary}
+                      onClick={async () => {
+                        if (!viewItem) return;
+                        setLoadingSummary(true);
+                        try {
+                          const res = await (await import("../../api/http")).http.post(
+                            `/doctor/appointments/${viewItem.id}/intake-summary`
+                          );
+                          setIntakeSummary(res.data?.data || res.data);
+                        } catch (err: any) {
+                          alert(err.response?.data?.message || "Không thể tạo tóm tắt AI.");
+                        } finally {
+                          setLoadingSummary(false);
+                        }
+                      }}
+                    >
+                      {loadingSummary ? "Đang xử lý..." : "✨ Tóm tắt tiền khám AI"}
+                    </Button>
+                    {intakeSummary && (
+                      <Button
+                        size="sm"
+                        variant="outline-secondary"
+                        disabled={loadingSummary}
+                        title="Tạo lại tóm tắt từ dữ liệu mới nhất"
+                        onClick={async () => {
+                          if (!viewItem) return;
+                          setLoadingSummary(true);
+                          try {
+                            const res = await (await import("../../api/http")).http.post(
+                              `/doctor/appointments/${viewItem.id}/intake-summary?regenerate=true`
+                            );
+                            setIntakeSummary(res.data?.data || res.data);
+                          } catch (err: any) {
+                            alert(err.response?.data?.message || "Không thể tạo lại tóm tắt.");
+                          } finally {
+                            setLoadingSummary(false);
+                          }
+                        }}
+                      >
+                        🔄 Tạo lại
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {intakeSummary && (
                   <div className="alert alert-info py-2 px-3 mb-2">
-                    <div className="fw-semibold small text-primary mb-1">
-                      {intakeSummary.verifiedDisclaimer || "Bản nháp do AI, bác sĩ cần xác minh"}
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <span className="badge bg-primary">
+                        {intakeSummary.source === 'ai' ? '🤖 Bản nháp AI' : '📋 Phân tích Quy tắc'}
+                      </span>
+                      <span className="small text-muted">Bác sĩ cần xác minh trước khi khám</span>
                     </div>
                     {intakeSummary.bullets && intakeSummary.bullets.length > 0 ? (
                       <ul className="mb-0 ps-3 small">
@@ -397,14 +563,14 @@ export default function DoctorAppointment() {
               {/* Display prescriptions if any */}
               {prescriptions.length > 0 && (
                 <div className="mt-3">
-                  <h6>Prescription(s):</h6>
+                  <h6>Đơn thuốc:</h6>
                   {prescriptions.map((prescription, idx) => (
                     <div key={prescription.id || idx} className="border rounded p-3 mb-2">
-                      <div><strong>Medicine:</strong> {prescription.medicineName || "-"}</div>
-                      {prescription.dosage && <div><strong>Dosage:</strong> {prescription.dosage}</div>}
-                      {prescription.duration && <div><strong>Duration:</strong> {prescription.duration}</div>}
+                      <div><strong>Tên thuốc:</strong> {prescription.medicineName || "-"}</div>
+                      {prescription.dosage && <div><strong>Liều lượng:</strong> {prescription.dosage}</div>}
+                      {prescription.duration && <div><strong>Thời gian dùng:</strong> {prescription.duration}</div>}
                       {prescription.instructions && (
-                        <div><strong>Instructions:</strong> {prescription.instructions}</div>
+                        <div><strong>Hướng dẫn:</strong> {prescription.instructions}</div>
                       )}
                     </div>
                   ))}
@@ -415,12 +581,44 @@ export default function DoctorAppointment() {
         </Modal.Body>
         <Modal.Footer>
           <Stack direction="horizontal" gap={2} className="ms-auto">
-            {/* Only show actions if appointment is not completed */}
+            {/* Action buttons based on status */}
             {viewItem && normStatus(viewItem.status) !== "COMPLETED" && (
               <>
-                {/* CHECK_IN -> Start */}
+                {/* CONFIRMED or RESCHEDULED: Doctor can Reschedule or Cancel */}
+                {(normStatus(viewItem.status) === "CONFIRMED" || normStatus(viewItem.status) === "RESCHEDULED") && (
+                  <>
+                    <Button
+                      variant="outline-secondary"
+                      onClick={() => handleOpenReschedule(viewItem.id)}
+                    >
+                      Đổi lịch hẹn
+                    </Button>
+                    <Button
+                      variant="outline-danger"
+                      onClick={() => handleOpenCancelModal(viewItem.id)}
+                    >
+                      Hủy lịch
+                    </Button>
+                  </>
+                )}
+
+                {/* CHECK_IN -> Start examination or Reschedule/Cancel */}
                 {normStatus(viewItem.status) === "CHECK_IN" && (
-                  <Button onClick={() => startAppointment(viewItem.id)}>Start</Button>
+                  <>
+                    <Button onClick={() => startAppointment(viewItem.id)}>Bắt đầu khám</Button>
+                    <Button
+                      variant="outline-secondary"
+                      onClick={() => handleOpenReschedule(viewItem.id)}
+                    >
+                      Đổi lịch hẹn
+                    </Button>
+                    <Button
+                      variant="outline-danger"
+                      onClick={() => handleOpenCancelModal(viewItem.id)}
+                    >
+                      Hủy lịch
+                    </Button>
+                  </>
                 )}
 
                 {/* IN_PROGRESS -> Add/Edit Prescription -> Complete */}
@@ -431,14 +629,14 @@ export default function DoctorAppointment() {
                         variant="outline-primary"
                         onClick={() => openPrescriptionModal(true)}
                       >
-                        Edit Prescription
+                        Sửa đơn thuốc
                       </Button>
                     ) : (
                       <Button
                         variant="outline-secondary"
                         onClick={() => openPrescriptionModal(false)}
                       >
-                        Add Prescription
+                        Thêm đơn thuốc
                       </Button>
                     )}
                     <Button
@@ -446,18 +644,190 @@ export default function DoctorAppointment() {
                       onClick={() => completeAppointment(viewItem.id)}
                       disabled={!addedPrescription}
                     >
-                      Complete
+                      Hoàn thành khám
                     </Button>
                   </>
                 )}
               </>
             )}
             
-            {/* If completed, show info message or nothing */}
+            {/* If completed, show info message */}
             {viewItem && normStatus(viewItem.status) === "COMPLETED" && (
-              <div className="text-muted">Appointment completed. View only.</div>
+              <div className="text-muted">Lịch hẹn đã hoàn thành (chế độ chỉ xem).</div>
             )}
+            <Button variant="secondary" onClick={() => setViewItem(null)}>
+              Đóng
+            </Button>
           </Stack>
+        </Modal.Footer>
+      </Modal>
+
+      {/* ---------- RESCHEDULE MODAL (Bác sĩ điều chỉnh lịch hẹn) ---------- */}
+      <Modal
+        show={showRescheduleModal}
+        onHide={() => {
+          setShowRescheduleModal(false);
+          setSelectedShiftId(null);
+          setRescheduleAppointmentId(null);
+          setRescheduleDoctorId(null);
+        }}
+        centered
+        size="lg"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Điều chỉnh lịch hẹn (Bác sĩ)</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {error && (
+            <div className="alert alert-danger mb-3" role="alert">
+              {error}
+            </div>
+          )}
+          <div className="mb-3">
+            <Form.Group className="mb-3">
+              <Form.Label>
+                <strong>Lý do điều chỉnh lịch hẹn (bắt buộc):</strong>
+              </Form.Label>
+              <Form.Control
+                type="text"
+                value={rescheduleReason}
+                onChange={(e) => setRescheduleReason(e.target.value)}
+                placeholder="Nhập lý do điều chỉnh..."
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>
+                <strong>Chọn ngày cho ca trực mới:</strong>
+              </Form.Label>
+              <Form.Control
+                type="date"
+                value={rescheduleDate}
+                min={toISODateInput(new Date())}
+                onChange={(e) => {
+                  const newDate = e.target.value;
+                  setRescheduleDate(newDate);
+                  setSelectedShiftId(null);
+                  if (rescheduleDoctorId) {
+                    loadAvailableShifts(newDate, rescheduleDoctorId);
+                  } else {
+                    loadAvailableShifts(newDate);
+                  }
+                }}
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>
+                <strong>Chọn ca trực mới của bác sĩ:</strong>
+              </Form.Label>
+              {loadingShifts && <div>Đang tải danh sách ca trực...</div>}
+              {!loadingShifts && availableShifts.length === 0 && (
+                <div className="text-warning">
+                  Không tìm thấy ca trực nào của bác sĩ trong ngày {rescheduleDate}. Vui lòng chọn ngày khác.
+                </div>
+              )}
+              {!loadingShifts && availableShifts.length > 0 && (
+                <Form.Select
+                  value={selectedShiftId || ""}
+                  onChange={(e) => setSelectedShiftId(Number(e.target.value) || null)}
+                >
+                  <option value="">-- Chọn ca trực --</option>
+                  {availableShifts.map((shift) => (
+                    <option key={shift.id} value={shift.id}>
+                      {shift.doctorName || "Bác sĩ"} - {shift.shift} ({shift.startTime} - {shift.endTime})
+                      {shift.availableSlotsCount !== undefined && shift.availableSlotsCount > 0 
+                        ? ` - còn ${shift.availableSlotsCount} khung giờ trống`
+                        : ""}
+                    </option>
+                  ))}
+                </Form.Select>
+              )}
+            </Form.Group>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Stack direction="horizontal" gap={2} className="ms-auto">
+            <Button
+              variant="outline-secondary"
+              onClick={() => {
+                setShowRescheduleModal(false);
+                setSelectedShiftId(null);
+                setRescheduleAppointmentId(null);
+                setRescheduleDoctorId(null);
+              }}
+            >
+              Hủy
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleReschedule}
+              disabled={!selectedShiftId || loading || !rescheduleReason.trim()}
+            >
+              {loading ? "Đang xử lý..." : "Xác nhận đổi lịch"}
+            </Button>
+          </Stack>
+        </Modal.Footer>
+      </Modal>
+
+      {/* ---------- CANCEL MODAL (Bác sĩ hủy lịch hẹn) ---------- */}
+      <Modal
+        show={showCancelModal}
+        onHide={() => !loading && setShowCancelModal(false)}
+        centered
+      >
+        <Modal.Header closeButton={!loading}>
+          <Modal.Title>Xác nhận hủy lịch hẹn (Bác sĩ)</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="mb-2">
+            Vui lòng nhập lý do hủy lịch hẹn (thông báo sẽ được gửi tới Lễ tân, Quản trị viên và Bệnh nhân):
+          </p>
+          <Form.Group className="mb-3">
+            <Form.Label>Lý do hủy:</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Nhập lý do hủy..."
+              disabled={loading}
+            />
+          </Form.Group>
+          <div className="d-flex flex-wrap gap-2">
+            {[
+              "Bác sĩ bận lịch đột xuất",
+              "Bác sĩ tham gia hội chẩn khẩn",
+              "Bệnh nhân yêu cầu đổi thời gian",
+              "Bệnh nhân không đủ điều kiện thực hiện khám",
+            ].map((sug) => (
+              <Button
+                key={sug}
+                variant="outline-secondary"
+                size="sm"
+                onClick={() => setCancelReason(sug)}
+                disabled={loading}
+              >
+                {sug}
+              </Button>
+            ))}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setShowCancelModal(false)}
+            disabled={loading}
+          >
+            Đóng
+          </Button>
+          <Button
+            variant="danger"
+            onClick={handleConfirmCancel}
+            disabled={loading || !cancelReason.trim()}
+          >
+            {loading ? "Đang xử lý..." : "Xác nhận hủy lịch"}
+          </Button>
         </Modal.Footer>
       </Modal>
 

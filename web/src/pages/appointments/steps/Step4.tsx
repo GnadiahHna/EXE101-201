@@ -212,6 +212,19 @@ export default function Step4Review() {
           }
     );
 
+    const primaryPatient = state.patientSelections[0];
+    const intakePayload = primaryPatient
+      ? {
+          symptoms: primaryPatient.symptoms || primaryPatient.reason,
+          duration: primaryPatient.duration,
+          allergies: primaryPatient.allergies,
+          medicalHistory: primaryPatient.medicalHistory,
+          currentMedications: primaryPatient.currentMedications,
+          weightKg: primaryPatient.weightKg,
+          heightCm: primaryPatient.heightCm,
+        }
+      : undefined;
+
     try {
       // 1. Claim voucher nếu có
       if (state.selectedVoucher) {
@@ -228,6 +241,7 @@ export default function Step4Review() {
             reason: appointmentReason,
             type: appointmentType,
           },
+          intake: intakePayload,
           shiftId: state.shiftId ?? undefined,
           slotId: state.slotId ?? undefined,
           appointmentTime: state.slotStartTime ?? undefined,
@@ -249,6 +263,9 @@ export default function Step4Review() {
       if (!appointmentNo) {
         throw new Error("Không nhận được mã lịch hẹn từ server");
       }
+
+      // Kích hoạt cập nhật chuông thông báo ngay sau khi tạo lịch hẹn
+      window.dispatchEvent(new Event("notification-refresh"));
 
       // Lưu thông tin lịch hẹn tạm thời và mở Popup thanh toán cọc qua mã QR
       setTransactionCode(appointmentNo);

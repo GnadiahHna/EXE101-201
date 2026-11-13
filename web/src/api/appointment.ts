@@ -267,6 +267,16 @@ export async function cancelAppointment(id: number, reason?: string): Promise<Ac
   }
 }
 
+export async function markNoShowAppointment(id: number, note?: string): Promise<ActionResponse> {
+  try {
+    await http.put(`/appointments/no-show/${id}`, { note });
+    return { ok: true };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to mark no-show";
+    return { ok: false, error: message };
+  }
+}
+
 export type BookAppointmentPatientPayload = {
   id?: number | null;
   fullName?: string;
@@ -280,6 +290,16 @@ export type BookAppointmentPayload = {
   appointment?: {
     reason?: string;
     type?: "ONLINE" | "OFFLINE";
+  };
+  intake?: {
+    symptoms?: string;
+    duration?: string;
+    allergies?: string[];
+    medicalHistory?: string[];
+    currentMedications?: string;
+    weightKg?: number | null;
+    heightCm?: number | null;
+    notes?: string;
   };
   patients?: BookAppointmentPatientPayload[];
   shiftId?: number | null;
@@ -308,12 +328,16 @@ export async function bookAppointment(
 
 export async function rescheduleAppointment(
   id: number,
-  newShiftId: number
+  newShiftId: number,
+  newSlotId?: number,
+  reason?: string
 ): Promise<ActionResponse> {
   try {
-    await http.put(
-      `/appointments/reschedule/${id}?newShiftId=${encodeURIComponent(newShiftId)}`
-    );
+    await http.put(`/appointments/reschedule/${id}`, {
+      newShiftId,
+      newSlotId,
+      reason,
+    });
     return { ok: true };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to reschedule";

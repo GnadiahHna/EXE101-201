@@ -17,11 +17,12 @@ router.get('/:appointmentId', getMyDetail);
 router.put('/start/:appointmentId', startAppointment);
 router.put('/complete/:appointmentId', completeAppointment);
 
-// AI Intake Summary endpoint (Phase 6)
+// AI Intake Summary endpoint (Phase 6 / v2)
 router.post('/:appointmentId/intake-summary', async (req, res, next) => {
   try {
     const { getIntakeSummary } = require('../services/intakeSummary.service');
-    const result = await getIntakeSummary(req.user, req.params.appointmentId);
+    const forceRegenerate = req.query.regenerate === 'true' || req.body?.regenerate === true;
+    const result = await getIntakeSummary(req.user, req.params.appointmentId, forceRegenerate);
     return res.status(200).json({
       success: true,
       data: result,

@@ -212,6 +212,15 @@ const appointmentSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    intakeSummaryDoc: {
+      narrative: { type: mongoose.Schema.Types.Mixed, default: null },
+      bullets: { type: [String], default: [] },
+      source: { type: String, enum: ['ai', 'rule'], default: 'rule' },
+      inputHash: { type: String, default: null },
+      promptVersion: { type: String, default: null },
+      model: { type: String, default: null },
+      generatedAt: { type: Date, default: null },
+    },
   },
   {
     timestamps: true,

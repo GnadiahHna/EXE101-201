@@ -8,6 +8,8 @@ const env = require('./config/env');
 const { validateConfig } = require('./config/validateConfig');
 const { connectDB, disconnectDB } = require('./config/db');
 const paymentMaintenanceJob = require('./jobs/paymentMaintenance.job');
+const { startNoShowJob, stopNoShowJob, runNoShowScan } = require('./jobs/noShow.job');
+const { startReminderJob, stopReminderJob } = require('./jobs/appointmentReminder.job');
 const outboxService = require('./services/outbox.service');
 
 const start = async () => {
@@ -21,6 +23,13 @@ const start = async () => {
       paymentMaintenanceJob.start();
     }
 
+    if (env.nodeEnv !== 'test') {
+      startNoShowJob(60000);
+      startReminderJob(60000);
+      // Chạy quét ngay khi server khởi động để đồng bộ trạng thái quá hạn
+      runNoShowScan().catch(e => console.warn('[server] Initial noShow scan warning:', e.message));
+    }
+
     if (env.outboxEnableWorker && env.nodeEnv !== 'test') {
       outboxService.startOutboxWorker(env.outboxPollIntervalMs || 5000);
     }
@@ -31,6 +40,8 @@ const start = async () => {
 
     const shutdown = async (signal) => {
       console.log(`${signal} received, shutting down gracefully...`);
+      stopNoShowJob();
+      stopReminderJob();
       await Promise.allSettled([
         paymentMaintenanceJob.stop(),
         outboxService.stopOutboxWorker(),

@@ -20,19 +20,19 @@ export default function DoctorSidebar() {
         <Nav className="menu">
           <Nav.Link as={NavLink} to="/doctor/dashboard" end className="item">
             <span className="icon">{Icon.overview}</span>
-            Overview
+            Tổng quan
           </Nav.Link>
           <Nav.Link as={NavLink} to="/doctor/appointments" className="item">
             <span className="icon">{Icon.calendar}</span>
-            Appointment
+            Lịch hẹn
           </Nav.Link>
           <Nav.Link as={NavLink} to="/doctor/patients" className="item">
             <span className="icon">{Icon.users}</span>
-            Patient
+            Bệnh nhân
           </Nav.Link>
           <Nav.Link as={NavLink} to="/doctor/shifts" className="item">
             <span className="icon">{Icon.calendar}</span>
-            Shift
+            Ca làm việc
           </Nav.Link>
         </Nav>
       </div>

@@ -4,7 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { createShift, fetchMyShifts, type CreateShiftPayload, type DoctorShift, type ShiftType } from "../../api/shift";
 
 const slotOrder: ShiftType[] = ["MORNING", "AFTERNOON", "EVENING"];
-const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const shiftDisplayNames: Record<ShiftType, string> = {
+  MORNING: "SÁNG",
+  AFTERNOON: "CHIỀU",
+  EVENING: "TỐI",
+};
+const days = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
 
 function getISOWeekStart(date = new Date()) {
   const d = new Date(date);
@@ -54,7 +59,10 @@ export default function CreateShift() {
       .then((arr) => {
         if (!alive) return;
         const map: Record<string, DoctorShift> = {};
-        for (const it of arr) map[`${it.date}|${it.shift}`] = it;
+        for (const it of arr) {
+          if (it.status === "CANCELLED") continue; // Cho phép đăng ký lại nếu ca đã bị hủy
+          map[`${it.date}|${it.shift}`] = it;
+        }
         setExisting(map);
       })
       .catch(() => {})
@@ -64,21 +72,42 @@ export default function CreateShift() {
 
   // selection state
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // Tính số lượng tối đa cho phép dựa trên các ca được chọn:
+  // Nếu chỉ chọn ca EVENING thì max là 9, ngược lại (chỉ MORNING/AFTERNOON hoặc hỗn hợp) là 12
+  const maxAllowedForSelection = useMemo(() => {
+    if (selected.size === 0) return 12;
+    const shiftTypes = Array.from(selected).map((k) => k.split("|")[1] as ShiftType);
+    const hasOnlyEvening = shiftTypes.every((s) => s === "EVENING");
+    return hasOnlyEvening ? 9 : 12;
+  }, [selected]);
+
+  // common fields applied to all selected slots (mặc định 12)
+  const [maxPatients, setMaxPatients] = useState<number>(12);
+  const [note, setNote] = useState<string>("");
+  const [repeatWeekly, setRepeatWeekly] = useState<boolean>(false);
+  const [repeatCount, setRepeatCount] = useState<number>(0); // 0..3
+
+  // Tự động điều chỉnh khi thay đổi lựa chọn ca
   const toggleCell = (iso: string, shift: ShiftType, disabled: boolean) => {
     if (disabled) return;
     setSelected((prev) => {
       const key = `${iso}|${shift}`;
       const next = new Set(prev);
       if (next.has(key)) next.delete(key); else next.add(key);
+
+      // Cập nhật maxPatients phù hợp: nếu chỉ còn ca tối -> 9, nếu có ca sáng/chiều -> 12
+      if (next.size > 0) {
+        const types = Array.from(next).map((k) => k.split("|")[1]);
+        const onlyEvening = types.every((t) => t === "EVENING");
+        setMaxPatients((current) => {
+          if (onlyEvening) return Math.min(current, 9);
+          return current;
+        });
+      }
       return next;
     });
   };
-
-  // common fields applied to all selected slots
-  const [maxPatients, setMaxPatients] = useState<number>(10);
-  const [note, setNote] = useState<string>("");
-  const [repeatWeekly, setRepeatWeekly] = useState<boolean>(false);
-  const [repeatCount, setRepeatCount] = useState<number>(0); // 0..3
 
   const weekRangeLabel = useMemo(() => {
     const start = new Date(monday);
@@ -98,10 +127,13 @@ export default function CreateShift() {
     try {
       for (const key of selected) {
         const [iso, s] = key.split("|");
+        // Ca tối giới hạn max 9, ca sáng/chiều giới hạn max 12
+        const slotShift = s as ShiftType;
+        const effectiveMax = slotShift === "EVENING" ? Math.min(maxPatients, 9) : Math.min(maxPatients, 12);
         const payload: CreateShiftPayload = {
           date: iso,
-          shift: s as ShiftType,
-          maxPatients,
+          shift: slotShift,
+          maxPatients: effectiveMax,
           note: note || undefined,
           repeatWeekly,
           repeatCount: repeatWeekly ? Math.max(0, Math.min(3, repeatCount)) : 0,
@@ -136,7 +168,7 @@ export default function CreateShift() {
           <table className="table table-bordered align-middle">
             <thead>
               <tr>
-                <th style={{width: 120}}>Shift</th>
+                <th style={{width: 120}}>Ca khám</th>
                 {headers.map((h) => (
                   <th key={h.iso}>{h.label}</th>
                 ))}
@@ -145,7 +177,7 @@ export default function CreateShift() {
             <tbody>
               {slotOrder.map((slot) => (
                 <tr key={slot}>
-                  <td className="fw-semibold">{slot}</td>
+                  <td className="fw-semibold">{shiftDisplayNames[slot]}</td>
                   {headers.map((h) => {
                     const key = `${h.iso}|${slot}`;
                     const isExisting = Boolean(existing[key]);
@@ -177,8 +209,26 @@ export default function CreateShift() {
         <Row className="g-3">
           <Col md={4}>
             <Form.Group controlId="sMax">
-              <Form.Label>Số bệnh nhân tối đa</Form.Label>
-              <Form.Control type="number" min={1} max={100} value={maxPatients} onChange={(e) => setMaxPatients(Number(e.target.value))} />
+              <Form.Label>
+                Số bệnh nhân tối đa{" "}
+                <span className="text-muted small">
+                  (Mặc định & tối đa: {maxAllowedForSelection} lượt)
+                </span>
+              </Form.Label>
+              <Form.Control
+                type="number"
+                min={1}
+                max={maxAllowedForSelection}
+                value={maxPatients}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  if (val > maxAllowedForSelection) {
+                    setMaxPatients(maxAllowedForSelection);
+                  } else {
+                    setMaxPatients(val);
+                  }
+                }}
+              />
             </Form.Group>
           </Col>
           <Col md={8}>

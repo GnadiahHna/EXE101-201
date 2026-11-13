@@ -72,3 +72,4 @@ waitlistSchema.plugin(baseSchemaPlugin, {
 const Waitlist = mongoose.model('Waitlist', waitlistSchema, 'waitlists');
 
 module.exports = Waitlist;
+

@@ -53,6 +53,8 @@ export type CreateShiftPayload = {
 export type ShiftCancellationRequest = {
   id: string;
   shiftId: string;
+  doctorId?: number;
+  doctorName?: string;
   shiftDate: string;
   shift: ShiftType;
   reason: string;
@@ -104,6 +106,27 @@ export async function createShift(payload: CreateShiftPayload): Promise<number |
 export async function fetchMyShiftCancellationRequests(): Promise<ShiftCancellationRequest[]> {
   const res = await http.get("/shifts/cancellation-requests/my");
   return pickArray<ShiftCancellationRequest>(res.data);
+}
+
+export async function fetchPendingShiftCancellationRequests(): Promise<ShiftCancellationRequest[]> {
+  const res = await http.get("/shifts/cancellation-requests/pending");
+  return pickArray<ShiftCancellationRequest>(res.data);
+}
+
+export async function approveShiftCancellationRequest(
+  id: number | string,
+  note?: string
+): Promise<ShiftCancellationRequest> {
+  const res = await http.put(`/shifts/cancellation-requests/${encodeURIComponent(id)}/approve`, { note });
+  return pickObject<ShiftCancellationRequest>(res.data);
+}
+
+export async function rejectShiftCancellationRequest(
+  id: number | string,
+  note: string
+): Promise<ShiftCancellationRequest> {
+  const res = await http.put(`/shifts/cancellation-requests/${encodeURIComponent(id)}/reject`, { note });
+  return pickObject<ShiftCancellationRequest>(res.data);
 }
 
 export async function createShiftCancellationRequest(

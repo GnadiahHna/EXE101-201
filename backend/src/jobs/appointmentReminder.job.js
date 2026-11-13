@@ -128,7 +128,7 @@ async function sendReminder(appt, reminderType) {
       confirmLink,
       cancelLink,
     },
-    sendEmail: true,
+    sendEmail: false,
   });
 }
 
@@ -161,3 +161,4 @@ module.exports = {
   runReminderScan,
   generateReminderActionToken,
 };
+

@@ -10,15 +10,16 @@ import {
   type ShiftCancellationRequest,
 } from "../../api/shift";
 import { http } from "../../api/http";
+import { statusLabel, normStatus } from "../../components/appointment/AppointmentStatus";
 import "../../styles/shift.css";
 
 /** ====== Constants ====== */
-const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const days = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
 const slotOrder = ["MORNING", "AFTERNOON", "EVENING"] as const;
 const slotLabel: Record<typeof slotOrder[number], string> = {
-  MORNING: "Morning (08:00 - 12:00)",
-  AFTERNOON: "Afternoon (13:00 - 17:00)",
-  EVENING: "Evening (18:00 - 21:00)",
+  MORNING: "Ca Sáng (08:00 - 12:00)",
+  AFTERNOON: "Ca Chiều (13:00 - 17:00)",
+  EVENING: "Ca Tối (18:00 - 21:00)",
 };
 
 /** ====== Date helpers (tuần bắt đầu từ Thứ 2) ====== */
@@ -146,6 +147,7 @@ export default function DoctorShifts() {
     const endISO = headers[6]?.iso;
 
     for (const it of allItems) {
+      if (it.status === "CANCELLED") continue; // Nếu ca đã bị hủy và được duyệt, bỏ qua để hiển thị ô trống
       const date = it.date; // yyyy-mm-dd
       if (!startISO || !endISO) continue;
       if (date < startISO || date > endISO) continue;
@@ -205,6 +207,12 @@ export default function DoctorShifts() {
             const items: AppointmentItem[] = [];
             for (const entry of arr) {
               if (!isRecord(entry)) continue;
+              const statusRaw = typeof entry.status === "string" ? entry.status : "";
+              const uiStatus = normStatus(statusRaw);
+              // Chỉ hiển thị các lịch đã được xác nhận (hoặc đang/đã khám). Bỏ qua các lịch đã hủy (CANCELLED) hoặc quá hạn (EXPIRED).
+              if (uiStatus === "CANCELLED" || uiStatus === "EXPIRED") {
+                continue;
+              }
               const patientSource = entry.patient;
               const patientName =
                 typeof entry.patientName === "string"
@@ -224,7 +232,7 @@ export default function DoctorShifts() {
                 id: Number(entry.id ?? 0),
                 time: timeValue.slice(0, 5),
                 patient: patientName,
-                status: typeof entry.status === "string" ? entry.status : undefined,
+                status: statusRaw,
               });
             }
             items.sort((a, b) => (a.time || "").localeCompare(b.time || ""));
@@ -274,8 +282,8 @@ export default function DoctorShifts() {
       {/* Filter Bar */}
       <div className="shift-filterbar">
         <div className="left">
-          <h5 className="title">My Shift</h5>
-          <span className="week-range">Week: {weekRangeLabel}</span>
+          <h5 className="title">Ca làm việc của tôi</h5>
+          <span className="week-range">Tuần: {weekRangeLabel}</span>
         </div>
 
         <div className="right">
@@ -310,7 +318,7 @@ export default function DoctorShifts() {
           <table className="shift-table table table-bordered align-middle">
             <thead>
               <tr>
-                <th className="col-shift">Shift</th>
+                <th className="col-shift">Ca khám</th>
                 {headers.map((h) => (
                   <th key={h.iso} className="col-day">
                     {h.label}
@@ -359,7 +367,7 @@ export default function DoctorShifts() {
       <Modal show={!!cancellationTarget} onHide={() => !submittingCancellation && setCancellationTarget(null)} centered>
         <Form onSubmit={submitCancellationRequest}>
           <Modal.Header closeButton>
-            <Modal.Title>Request shift cancellation</Modal.Title>
+            <Modal.Title>Yêu cầu hủy ca làm việc</Modal.Title>
           </Modal.Header>
           <Modal.Body>
             {cancellationTarget && (
@@ -368,7 +376,7 @@ export default function DoctorShifts() {
               </p>
             )}
             <Form.Group controlId="shift-cancellation-reason">
-              <Form.Label>Reason</Form.Label>
+              <Form.Label>Lý do</Form.Label>
               <Form.Control
                 as="textarea"
                 rows={4}
@@ -376,7 +384,7 @@ export default function DoctorShifts() {
                 required
                 value={cancellationReason}
                 onChange={(event) => setCancellationReason(event.target.value)}
-                placeholder="Explain why you need to cancel this shift"
+                placeholder="Giải thích lý do cần hủy ca làm việc này"
               />
               <Form.Text className="text-muted">{cancellationReason.length}/500</Form.Text>
             </Form.Group>
@@ -384,10 +392,10 @@ export default function DoctorShifts() {
           </Modal.Body>
           <Modal.Footer>
             <Button variant="outline-secondary" onClick={() => setCancellationTarget(null)} disabled={submittingCancellation}>
-              Close
+              Đóng
             </Button>
             <Button type="submit" variant="danger" disabled={submittingCancellation || !cancellationReason.trim()}>
-              {submittingCancellation ? "Submitting…" : "Submit request"}
+              {submittingCancellation ? "Đang gửi…" : "Gửi yêu cầu"}
             </Button>
           </Modal.Footer>
         </Form>
@@ -431,19 +439,19 @@ function ShiftChip({
         )}
       </div>
       {cancellationRequest?.status === "PENDING" ? (
-        <div className="small text-warning-emphasis mt-2">Cancellation request pending review</div>
+        <div className="small text-warning-emphasis mt-2">Yêu cầu hủy ca đang chờ duyệt</div>
       ) : cancellationRequest?.status === "APPROVED" ? (
-        <div className="small text-success mt-2">Cancellation request approved</div>
+        <div className="small text-success mt-2">Yêu cầu hủy ca đã được duyệt</div>
       ) : (
         <>
           {cancellationRequest?.status === "REJECTED" && (
             <div className="small text-muted mt-2">
-              Request rejected{cancellationRequest.decisionNote ? `: ${cancellationRequest.decisionNote}` : ""}
+              Yêu cầu bị từ chối{cancellationRequest.decisionNote ? `: ${cancellationRequest.decisionNote}` : ""}
             </div>
           )}
           {shift.status === "ACTIVE" && (
             <Button size="sm" variant="outline-danger" className="mt-2" onClick={onRequestCancellation}>
-              Request cancellation
+              Yêu cầu hủy ca
             </Button>
           )}
         </>
@@ -461,15 +469,17 @@ function AppointmentChip({
   patient?: string;
   status?: string;
 }) {
+  const uiStatus = normStatus(status);
   const s = String(status || "").toLowerCase().replace(/_/g, "-");
   const cls = s ? `appt appt-${s}` : "appt appt-default";
+  const displayStatus = statusLabel[uiStatus] || status || "-";
   return (
-    <div className={cls} title={status || ""}>
+    <div className={cls} title={displayStatus}>
       <span className="appt-left">
         <span className="time">{(time || "--:--").slice(0, 5)}</span>
-        <span className="patient">{patient || "Patient"}</span>
+        <span className="patient">{patient || "Bệnh nhân"}</span>
       </span>
-      <span className="status">{status || "-"}</span>
+      <span className="status">{displayStatus}</span>
     </div>
   );
 }

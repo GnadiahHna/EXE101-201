@@ -52,7 +52,7 @@ export default function Chatbot() {
     }
   }, [messages, isOpen, isMinimized]);
 
-  const handleSelectSlot = (slot: SuggestedSlot, specialtyId?: number | null) => {
+  const handleSelectSlot = (slot: SuggestedSlot, specialtyId?: number | null, userSymptoms?: string) => {
     if (apptContext?.dispatch) {
       if (specialtyId) {
         apptContext.dispatch({ type: 'SET_SPECIALTY', id: specialtyId, name: slot.specialtyName });
@@ -71,6 +71,13 @@ export default function Chatbot() {
         slotEndTime: slot.endTime,
         slotNumber: slot.slotNumber,
       });
+      // Pre-fill intake symptoms draft from chat session
+      if (userSymptoms) {
+        sessionStorage.setItem('appointment_intake_draft', JSON.stringify({
+          symptoms: userSymptoms,
+          source: 'chatbot',
+        }));
+      }
       apptContext.dispatch({ type: 'SET_STEP', step: 3 });
     }
     setIsOpen(false);
@@ -104,6 +111,7 @@ export default function Chatbot() {
         isUser: false,
         timestamp: new Date(),
         urgency: res.urgency,
+        specialtyId: res.specialtyId,
         suggestedSlots: res.suggestedSlots,
         actions: res.actions,
       };
@@ -238,6 +246,11 @@ export default function Chatbot() {
 
           {!isMinimized && (
             <>
+              {/* Chế độ Demo Disclaimer (PART 0) */}
+              <div className="bg-warning-subtle text-dark px-2 py-1 text-center small border-bottom" style={{ fontSize: '11px', fontWeight: 500 }}>
+                ⚠️ Bản demo học thuật, dùng dữ liệu giả, không thay thế bác sĩ.
+              </div>
+
               {/* Message List */}
               <div className="chatbot-messages">
                 {messages.map((message) => (
@@ -281,17 +294,34 @@ export default function Chatbot() {
                         <div className="mt-2 p-2 bg-light rounded border">
                           <div className="small fw-bold text-primary mb-1">📅 Khung giờ khám gợi ý:</div>
                           <div className="d-flex flex-column gap-1">
-                            {message.suggestedSlots.map((slot) => (
-                              <button
-                                key={slot.shiftId}
-                                type="button"
-                                className="btn btn-outline-primary btn-sm text-start py-1"
-                                onClick={() => handleSelectSlot(slot, message.suggestedSlots?.[0]?.shiftId)}
-                              >
-                                <strong>{slot.date} ({slot.startTime} - {slot.endTime})</strong>
-                                <div className="text-muted small">{slot.doctorName}</div>
-                              </button>
-                            ))}
+                            {message.suggestedSlots.map((slot) => {
+                              const shiftName =
+                                slot.shiftType === 'MORNING'
+                                  ? 'Sáng'
+                                  : slot.shiftType === 'AFTERNOON'
+                                  ? 'Chiều'
+                                  : slot.shiftType === 'EVENING'
+                                  ? 'Tối'
+                                  : '';
+                              return (
+                                <button
+                                  key={`${slot.shiftId}-${slot.slotId || slot.slotNumber}`}
+                                  type="button"
+                                  className="btn btn-outline-primary btn-sm text-start py-1"
+                                  onClick={() => {
+                                    // Find last user query to pre-fill intake symptoms
+                                    const lastUserMsg = [...messages].reverse().find((m) => m.isUser);
+                                    handleSelectSlot(slot, message.specialtyId, lastUserMsg?.text);
+                                  }}
+                                >
+                                  <strong>
+                                    {slot.date} ({slot.startTime} - {slot.endTime})
+                                    {shiftName ? ` • Ca ${shiftName}` : ''}
+                                  </strong>
+                                  <div className="text-muted small">{slot.doctorName}</div>
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       )}

@@ -34,7 +34,7 @@ type RowErrors = {
 };
 
 /* ============================== Constants ============================== */
-const DOSAGE_UNITS = ["mg", "ml", "tablet", "capsule", "viên", "g", "IU"];
+const DOSAGE_UNITS = ["mg", "ml", "viên", "gói", "chai", "ống", "tablet", "capsule", "g", "IU"];
 const DURATION_UNITS = ["day", "week", "month"];
 const DURATION_UNITS_LABELS: Record<string, string> = {
   day: "ngày",
@@ -43,18 +43,18 @@ const DURATION_UNITS_LABELS: Record<string, string> = {
 };
 
 const INSTRUCTIONS_OPTIONS = [
-  { value: "", label: "-- Select instruction --" },
-  { value: "Take before breakfast", label: "Take before breakfast" },
-  { value: "Take after breakfast", label: "Take after breakfast" },
-  { value: "Take before lunch", label: "Take before lunch" },
-  { value: "Take after lunch", label: "Take after lunch" },
-  { value: "Take before dinner", label: "Take before dinner" },
-  { value: "Take after dinner", label: "Take after dinner" },
-  { value: "Take with meals", label: "Take with meals" },
-  { value: "Take on empty stomach", label: "Take on empty stomach" },
-  { value: "Take with plenty of water", label: "Take with plenty of water" },
-  { value: "Take at bedtime", label: "Take at bedtime" },
-  { value: "OTHER", label: "Other (specify)" },
+  { value: "", label: "-- Chọn hướng dẫn sử dụng --" },
+  { value: "Uống trước bữa ăn sáng", label: "Uống trước bữa ăn sáng" },
+  { value: "Uống sau bữa ăn sáng", label: "Uống sau bữa ăn sáng" },
+  { value: "Uống trước bữa ăn trưa", label: "Uống trước bữa ăn trưa" },
+  { value: "Uống sau bữa ăn trưa", label: "Uống sau bữa ăn trưa" },
+  { value: "Uống trước bữa ăn tối", label: "Uống trước bữa ăn tối" },
+  { value: "Uống sau bữa ăn tối", label: "Uống sau bữa ăn tối" },
+  { value: "Uống cùng bữa ăn", label: "Uống cùng bữa ăn" },
+  { value: "Uống khi đói", label: "Uống khi đói" },
+  { value: "Uống với nhiều nước", label: "Uống với nhiều nước" },
+  { value: "Uống trước khi đi ngủ", label: "Uống trước khi đi ngủ" },
+  { value: "OTHER", label: "Khác (tự nhập hướng dẫn)" },
 ];
 
 /* ============================== Component ============================== */
@@ -119,7 +119,7 @@ export default function AddPrescription() {
   /* ---- Load appointment details and existing prescriptions (if edit mode) ---- */
   useEffect(() => {
     if (!appointmentId) {
-      setError("Invalid appointment ID");
+      setError("Mã lịch hẹn không hợp lệ");
       return;
     }
 
@@ -156,10 +156,10 @@ export default function AddPrescription() {
             setLoadingPrescriptions(false);
           }
         } else {
-          setError(res.error || "Failed to load appointment");
+          setError(res.error || "Không thể tải thông tin lịch hẹn");
         }
       } catch (e: unknown) {
-        const message = e instanceof Error ? e.message : "Failed to load appointment";
+        const message = e instanceof Error ? e.message : "Không thể tải thông tin lịch hẹn";
         setError(message);
       }
     })();
@@ -185,7 +185,7 @@ export default function AddPrescription() {
   /* ---- Remove row ---- */
   const removeRow = (rowId: string) => {
     if (rows.length === 1) {
-      setError("At least one medicine is required");
+      setError("Phải có ít nhất 1 dòng thuốc trong đơn thuốc");
       return;
     }
     setRows(rows.filter((r) => r.id !== rowId));
@@ -253,37 +253,37 @@ export default function AddPrescription() {
       const rowErrors: RowErrors = {};
       
       if (!row.medicineName?.trim()) {
-        rowErrors.medicineName = "Medicine name is required";
+        rowErrors.medicineName = "Vui lòng nhập tên thuốc";
         isValid = false;
       }
 
       // Dosage: số lượng là bắt buộc và phải > 0
       if (!row.dosageAmount?.trim()) {
-        rowErrors.dosageAmount = "Dosage amount is required";
+        rowErrors.dosageAmount = "Vui lòng nhập số lượng liều lượng";
         isValid = false;
       } else {
         const amount = Number(row.dosageAmount);
         if (isNaN(amount) || amount <= 0) {
-          rowErrors.dosageAmount = "Dosage amount must be greater than 0";
+          rowErrors.dosageAmount = "Liều lượng phải lớn hơn 0";
           isValid = false;
         }
       }
 
       // Duration: số lượng là bắt buộc và phải > 0
       if (!row.durationAmount?.trim()) {
-        rowErrors.durationAmount = "Duration amount is required";
+        rowErrors.durationAmount = "Vui lòng nhập thời gian dùng";
         isValid = false;
       } else {
         const amount = Number(row.durationAmount);
         if (isNaN(amount) || amount <= 0) {
-          rowErrors.durationAmount = "Duration amount must be greater than 0";
+          rowErrors.durationAmount = "Thời gian dùng phải lớn hơn 0";
           isValid = false;
         }
       }
 
       // Nếu chọn "OTHER" cho instructions, customInstructions phải có giá trị
       if (row.instructions === "OTHER" && !row.customInstructions?.trim()) {
-        rowErrors.customInstructions = "Please specify custom instructions";
+        rowErrors.customInstructions = "Vui lòng nhập hướng dẫn sử dụng cụ thể";
         isValid = false;
       }
 
@@ -339,11 +339,11 @@ export default function AddPrescription() {
           details: res.allergyDetails || [],
         });
       } else {
-        setError(res.error || `Failed to ${isEditMode ? "update" : "create"} prescriptions`);
+        setError(res.error || `Không thể ${isEditMode ? "cập nhật" : "lưu"} đơn thuốc`);
       }
     } catch (e: unknown) {
       const message =
-        e instanceof Error ? e.message : "Failed to create prescriptions";
+        e instanceof Error ? e.message : "Không thể lưu đơn thuốc";
       setError(message);
     } finally {
       setLoading(false);
@@ -359,7 +359,7 @@ export default function AddPrescription() {
   return (
     <Modal show={true} onHide={handleCancel} centered size="xl" backdrop="static">
       <Modal.Header closeButton>
-        <Modal.Title>{isEditMode ? "Edit Prescription(s)" : "Add Prescription(s)"}</Modal.Title>
+        <Modal.Title>{isEditMode ? "Chỉnh sửa đơn thuốc" : "Kê đơn thuốc"}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {/* Appointment Info */}
@@ -367,12 +367,12 @@ export default function AddPrescription() {
           <div className="mb-4 p-3 bg-light rounded">
             <div className="row">
               <div className="col-md-6">
-                <div><strong>Patient:</strong> {appointment.patientName || "N/A"}</div>
-                <div><strong>Date:</strong> {appointment.appointmentDate} {appointment.appointmentTime}</div>
+                <div><strong>Bệnh nhân:</strong> {appointment.patientName || "N/A"}</div>
+                <div><strong>Thời gian khám:</strong> {appointment.appointmentDate} {appointment.appointmentTime}</div>
               </div>
               <div className="col-md-6">
-                <div><strong>Status:</strong> <AppointmentStatus status={normStatus(appointment.status)} withBadge={false} /></div>
-                {appointment.doctorName && <div><strong>Doctor:</strong> {appointment.doctorName}</div>}
+                <div><strong>Trạng thái:</strong> <AppointmentStatus status={normStatus(appointment.status)} withBadge={false} /></div>
+                {appointment.doctorName && <div><strong>Bác sĩ phụ trách:</strong> {appointment.doctorName}</div>}
               </div>
             </div>
           </div>
@@ -408,20 +408,20 @@ export default function AddPrescription() {
         {/* Prescription Form */}
         <div className="mb-3">
           <div className="d-flex justify-content-between align-items-center mb-3">
-            <h6>Medicines</h6>
+            <h6 className="fw-bold mb-0">Danh sách thuốc</h6>
             <Button variant="outline-primary" size="sm" onClick={addRow}>
-              + Add Medicine
+              + Thêm thuốc
             </Button>
           </div>
 
           <div className="table-responsive">
             <Table bordered hover>
-              <thead>
+              <thead className="table-light">
                 <tr>
-                  <th style={{ width: "25%" }}>Medicine Name *</th>
-                  <th style={{ width: "20%" }}>Dosage *</th>
-                  <th style={{ width: "20%" }}>Duration *</th>
-                  <th style={{ width: "30%" }}>Instructions</th>
+                  <th style={{ width: "25%" }}>Tên thuốc *</th>
+                  <th style={{ width: "20%" }}>Liều lượng *</th>
+                  <th style={{ width: "20%" }}>Thời gian dùng *</th>
+                  <th style={{ width: "30%" }}>Hướng dẫn sử dụng</th>
                   <th style={{ width: "5%" }}></th>
                 </tr>
               </thead>
@@ -432,7 +432,7 @@ export default function AddPrescription() {
                     <td>
                       <Form.Control
                         type="text"
-                        placeholder="Enter medicine name"
+                        placeholder="Nhập tên biệt dược/thuốc"
                         value={row.medicineName}
                         onChange={(e) => updateRow(row.id, "medicineName", e.target.value)}
                         isInvalid={!!errors[row.id]?.medicineName}
@@ -447,7 +447,7 @@ export default function AddPrescription() {
                       <div className="d-flex gap-1">
                         <Form.Control
                           type="number"
-                          placeholder="Amount"
+                          placeholder="Số lượng"
                           min="0.01"
                           step="0.01"
                           value={row.dosageAmount}
@@ -477,7 +477,7 @@ export default function AddPrescription() {
                       <div className="d-flex gap-1">
                         <Form.Control
                           type="number"
-                          placeholder="Amount"
+                          placeholder="Số ngày/tuần"
                           min="1"
                           step="1"
                           value={row.durationAmount}
@@ -519,7 +519,7 @@ export default function AddPrescription() {
                           <Form.Control
                             type="text"
                             className="mt-2"
-                            placeholder="Enter custom instructions"
+                            placeholder="Nhập hướng dẫn cụ thể cho bệnh nhân"
                             value={row.customInstructions}
                             onChange={(e) => {
                               updateRow(row.id, "customInstructions", e.target.value);
@@ -565,10 +565,10 @@ export default function AddPrescription() {
       <Modal.Footer>
         <Stack direction="horizontal" gap={2} className="ms-auto">
           <Button variant="outline-secondary" onClick={handleCancel} disabled={loading}>
-            Cancel
+            Đóng
           </Button>
           <Button variant="primary" onClick={() => handleSubmit(false)} disabled={loading || loadingPrescriptions}>
-            {loading ? "Saving..." : isEditMode ? "Update Prescriptions" : "Save Prescriptions"}
+            {loading ? "Đang lưu..." : isEditMode ? "Cập nhật đơn thuốc" : "Lưu đơn thuốc"}
           </Button>
         </Stack>
       </Modal.Footer>

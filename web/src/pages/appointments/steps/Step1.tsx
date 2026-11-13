@@ -71,7 +71,7 @@ export default function Step1Select() {
       <Card className="appt-inner-card mb-4">
         <Card.Body className="d-flex flex-column flex-lg-row gap-3 align-items-lg-center">
           <div className="flex-grow-1 w-100">
-            <Form.Label className="appt-label mb-2">Select Specialty</Form.Label>
+            <Form.Label className="appt-label mb-2">Chọn chuyên khoa</Form.Label>
             <Form.Select
               value={state.specialtyId ?? ""}
               onChange={(e) => {
@@ -84,7 +84,7 @@ export default function Step1Select() {
               }}
               disabled={loadingSpec}
             >
-              <option value="">-- Choose --</option>
+              <option value="">-- Chọn chuyên khoa --</option>
               {specialties.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
@@ -103,7 +103,7 @@ export default function Step1Select() {
       <Card className="appt-inner-card mb-4">
         <Card.Body>
           <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-            <div className="appt-heading mb-0">Doctors by Specialty</div>
+            <div className="appt-heading mb-0">Bác sĩ theo chuyên khoa</div>
             {state.specialtyName ? (
               <span className="appt-chip-secondary">{state.specialtyName}</span>
             ) : null}

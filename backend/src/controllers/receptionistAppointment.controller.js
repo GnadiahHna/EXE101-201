@@ -116,11 +116,39 @@ const rescheduleAppointment = async (req, res, next) => {
   }
 };
 
+/**
+ * Controller for marking an appointment as NO_SHOW (UC-REC-06).
+ * Route: PUT /appointments/no-show/:id
+ * Allowed roles: RECEPTIONIST, ADMIN
+ */
+const markNoShow = async (req, res, next) => {
+  try {
+    const actor = getPrincipal(req);
+    const appointmentId = req.params.id;
+    const note = req.body?.note || req.query?.note;
+
+    const result = await receptionistAppointmentService.markNoShowByStaff(
+      actor,
+      appointmentId,
+      { note },
+    );
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: result.message,
+      data: result.appointment,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   confirmAppointment,
   checkinAppointment,
   cancelAppointment,
   rescheduleAppointment,
+  markNoShow,
 };
 
 

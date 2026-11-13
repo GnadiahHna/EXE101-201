@@ -42,12 +42,12 @@ const Icons = {
 };
 
 const navItems = [
-  { to: "/patient/profile", label: "Patient Profile", icon: Icons.profile },
-  { to: "/patient/appointments", label: "Appointment", icon: Icons.appointments },
-  { to: "/patient/history", label: "History", icon: Icons.history },
-  { to: "/patient/events", label: "Event", icon: Icons.events },
-  { to: "/patient/vouchers", label: "Voucher", icon: Icons.vouchers },
-  { to: "/patient/feedback", label: "Feedback", icon: Icons.feedback },
+  { to: "/patient/profile", label: "Hồ sơ bệnh nhân", icon: Icons.profile },
+  { to: "/patient/appointments", label: "Lịch hẹn của tôi", icon: Icons.appointments },
+  { to: "/patient/history", label: "Lịch sử khám", icon: Icons.history },
+  { to: "/patient/events", label: "Sự kiện", icon: Icons.events },
+  { to: "/patient/vouchers", label: "Phiếu giảm giá", icon: Icons.vouchers },
+  { to: "/patient/feedback", label: "Đánh giá & Góp ý", icon: Icons.feedback },
 ];
 
 export default function PatientSidebar() {

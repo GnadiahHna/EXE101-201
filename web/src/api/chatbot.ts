@@ -9,6 +9,7 @@ export interface SuggestedSlot {
   date: string;
   startTime: string;
   endTime: string;
+  shiftType?: string;
   doctorId: number;
   doctorName: string;
   specialtyName?: string;
@@ -39,6 +40,7 @@ export interface ChatMessage {
   isError?: boolean;
   retryText?: string;
   urgency?: UrgencyLevel;
+  specialtyId?: number | null;
   suggestedSlots?: SuggestedSlot[];
   actions?: ChatAction[];
 }

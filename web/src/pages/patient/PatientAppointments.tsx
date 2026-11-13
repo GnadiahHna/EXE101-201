@@ -5,9 +5,9 @@ import { statusLabel, type UiStatus } from "../../components/appointment/Appoint
 import { fetchMyUpcomingAppointments, cancelAppointment, type Appointment } from "../../api/appointment";
 
 type GroupedAppointments = Record<UiStatus, Appointment[]>;
-type ChipTone = "blue" | "green" | "purple" | "red";
+type ChipTone = "blue" | "green" | "purple" | "red" | "gray";
 
-const statusOrder: UiStatus[] = ["PENDING_CONFIRM", "CONFIRMED", "CHECK_IN", "CANCELLED"];
+const statusOrder: UiStatus[] = ["PENDING_CONFIRM", "CONFIRMED", "CHECK_IN", "EXPIRED", "COMPLETED", "CANCELLED"];
 
 const STATUS_META: Partial<
   Record<
@@ -25,29 +25,43 @@ const STATUS_META: Partial<
     title: "Chờ xác nhận",
     description: "Lịch hẹn đang đợi phòng khám phê duyệt.",
     tone: "blue",
-    badge: "Pending confirmation",
+    badge: "Chờ xác nhận",
     defaultReason: "Khám định kỳ",
   },
   CONFIRMED: {
     title: "Đã xác nhận",
     description: "Phòng khám đã xác nhận thời gian khám.",
     tone: "green",
-    badge: "Confirmed",
+    badge: "Đã xác nhận",
     defaultReason: "Lịch khám đã xác nhận",
   },
   CHECK_IN: {
-    title: "Đã check-in",
+    title: "Đã có mặt",
     description: "Bạn đã xác nhận có mặt tại phòng khám.",
     tone: "purple",
-    badge: "Checked in",
+    badge: "Đã có mặt",
     defaultReason: "Đang chờ khám",
   },
   CANCELLED: {
     title: "Đã hủy",
     description: "Các lịch hẹn đã được hủy thành công.",
     tone: "red",
-    badge: "Cancelled",
+    badge: "Đã hủy",
     defaultReason: "Khám định kỳ",
+  },
+  EXPIRED: {
+    title: "Quá hạn",
+    description: "Lịch hẹn đã quá thời gian khám.",
+    tone: "red",
+    badge: "Quá hạn",
+    defaultReason: "Lịch hẹn quá hạn",
+  },
+  COMPLETED: {
+    title: "Đã xong",
+    description: "Lịch hẹn đã hoàn thành.",
+    tone: "green",
+    badge: "Đã xong",
+    defaultReason: "Đã hoàn thành khám",
   },
 };
 

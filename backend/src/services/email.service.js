@@ -89,7 +89,7 @@ function buildAppointmentHtml({ patientName, appointment, doctorName, specialtyN
     <div class="content">
       <div class="greeting">Kính gửi ${safePatientName},</div>
       <div class="desc">
-        Hệ thống đã nhận được khoản <strong>tiền cọc 5.000 VNĐ</strong> và xác nhận lịch hẹn khám của quý khách với chi tiết như sau:
+        Hệ thống đã nhận được khoản <strong>tiền cọc 20.000 VNĐ</strong> và xác nhận lịch hẹn khám của quý khách với chi tiết như sau:
       </div>
 
       <div class="info-box">
@@ -132,7 +132,7 @@ function buildAppointmentHtml({ patientName, appointment, doctorName, specialtyN
         <ul>
           <li>Vui lòng có mặt tại quầy tiếp đón phòng khám trước <strong>15 phút</strong> để hoàn tất thủ tục đo sinh hiệu.</li>
           <li>Quý khách vui lòng mang theo Căn cước công dân (hoặc thẻ BHYT nếu có).</li>
-          <li>Khoản tiền cọc 5.000 VNĐ sẽ được trừ trực tiếp vào hóa đơn khám tại phòng khám.</li>
+          <li>Khoản tiền cọc 20.000 VNĐ sẽ được trừ trực tiếp vào hóa đơn khám tại phòng khám.</li>
         </ul>
       </div>
     </div>

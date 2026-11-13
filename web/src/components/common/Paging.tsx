@@ -15,7 +15,7 @@ export default function Paging({ total, page, pageSize, onChange }: PagingProps)
   return (
     <div className="paging">
       <button className="paging-btn" disabled={page === 1} onClick={() => onChange(page - 1)}>
-        ← Previous
+        ← Trước
       </button>
 
       <div className="paging-pages">
@@ -37,12 +37,12 @@ export default function Paging({ total, page, pageSize, onChange }: PagingProps)
       </div>
 
       <div className="paging-right">
-        <span>Page</span>
+        <span>Trang</span>
         <span className="paging-select">{page}</span>
-        <span>of</span>
+        <span>/</span>
         <span>{pages}</span>
         <button className="paging-btn" disabled={page === pages} onClick={() => onChange(page + 1)}>
-          Next →
+          Sau →
         </button>
       </div>
     </div>
