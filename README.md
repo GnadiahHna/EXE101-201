@@ -257,4 +257,50 @@ Chạy tự động khi có PR hoặc Push vào nhánh `main`:
 - **docker:** Xác thực `docker compose config -q`, build thử Docker image backend & web (`push: false`).
 - **ci-success:** Tổng hợp kết quả các jobs thành gate duy nhất để cấu hình Branch Protection Rule.
 
+---
+
+## 8. Các Tính Năng & Nghiệp Vụ Nổi Bật (Key Features & AI Capabilities)
+
+Hệ thống ClinicBooking được thiết kế chuẩn mực y tế, bảo mật dữ liệu PII và tích hợp công nghệ AI Gemini phục vụ đắc lực cho cả bệnh nhân, nhân viên lễ tân và bác sĩ điều trị:
+
+### 8.1. Trợ Lý AI Gemini Triage v2 & Điều Hướng Y Tế (Chatbot)
+- **Cổng phân luồng 2 lớp (Dynamic Specialty Gate):**
+  - **Lớp 1 (Quy tắc cứng, tốc độ cao):** Chuẩn hóa tiếng Việt bỏ dấu, nhận diện tín hiệu prompt injection, phát hiện khẩn cấp 115 cứng TRƯỚC khi gọi LLM, negative cache bằng SHA-256 trong 10 phút.
+  - **Lớp 2 (Gemini Structured Output qua Zod Schema):** Model AI chỉ phân loại triệu chứng vào các chuyên khoa có thực tế trong cơ sở dữ liệu phòng khám (`triageHints`). Nếu triệu chứng thuộc chuyên khoa phòng khám không có hoặc câu hỏi lạc đề, hệ thống dùng câu trả lời an toàn do server định nghĩa sẵn và gợi ý đặt khám Nội tổng quát.
+- **Bảo vệ quyền riêng tư (PII Hygiene):** Tự động che giấu (redact) số điện thoại, email, CCCD/CMND trước khi gửi dữ liệu sang Gemini API.
+- **Failover đa model & Hạn mức ngân sách:** Tự động chuyển đổi giữa `gemini-3.5-flash-lite`, `gemini-3.5-flash`, `gemini-3.8-flash`; giới hạn budget gọi AI hàng ngày qua MongoDB atomic counter (`ai_usage`).
+
+### 8.2. Tóm Tắt Tiền Khám Y Tế Cho Bác Sĩ (Medical Intake Summary v2)
+- **Tách bạch Facts & Narrative:**
+  - **Facts lâm sàng:** Dị ứng thuốc, bệnh lý nền, thuốc đang dùng, chiều cao/cân nặng được server render trực tiếp từ database (đảm bảo không bao giờ bị AI ảo giác).
+  - **AI Narrative:** Tóm tắt diễn biến triệu chứng của bệnh nhân, thời gian khởi phát và tự động gợi ý 2-3 câu hỏi khai thác bệnh sử cho bác sĩ.
+- **Hỗ trợ tiền khám nhiều người:** Khi đặt lịch cho 2 người trở lên, hệ thống tự động bóc tách và tóm tắt chi tiết theo từng người (`Bệnh nhân 1`, `Bệnh nhân 2`).
+- **Giao diện tinh gọn:** Khung tiền khám trong modal chi tiết của Bác sĩ tự động ẩn text thô khi đã có bản tóm tắt AI, kèm nút `🔄 Tóm tắt lại` và badge cảnh báo dị ứng đỏ rực rỡ.
+
+### 8.3. Đặt Lịch & Đổi Lịch Nhiều Người (Multi-Patient Booking & Reschedule)
+- **Đặt lịch nhóm:** Khách hàng có thể đặt lịch cho người thân (tối đa 4 người/ca khám). Hệ thống sẽ tự động khóa liên tiếp $N$ slots trong ca trực.
+- **Bảo toàn slot khi đổi lịch (Reschedule):** Lễ tân/Bác sĩ khi đổi ca cho lịch hẹn $N$ người sẽ tự động tìm kiếm cụm $N$ slot liên tiếp khả dụng trong ca trực mới, chuyển trạng thái `BOOKED` cho toàn bộ các slot mới và giải phóng đầy đủ các slot ở ca cũ.
+- **Bảng ca làm việc bác sĩ:** Tự động phân rã hiển thị từng mốc giờ tương ứng với từng người khám (ví dụ `18:00 DHA`, `18:20 Anh`).
+
+### 8.4. Quản Lý Ca Trực & An Toàn Kê Đơn Bác Sĩ
+- **Chặn hủy ca quá khứ:** Chặn nghiêm ngặt việc gửi yêu cầu hủy ca cho các ca trực trong quá khứ hoặc đã kết thúc (`shift.date < today` hoặc `shift.date === today && shift.endTime <= currentTime`).
+- **Quản lý Hồ sơ bệnh nhân (`PatientProfile`):** Cho phép cập nhật thông tin y tế chuyên sâu (Dị ứng thuốc/thực phẩm, Tiền sử bệnh nền, Chiều cao, Cân nặng).
+- **Cảnh báo tương tác dị ứng thuốc:** Tự động đối chiếu đơn thuốc bác sĩ kê với tiền sử dị ứng của bệnh nhân, chặn kê đơn khi có dị ứng chéo (cross-reactive) nếu không có ghi đè y khoa hợp lệ.
+
+---
+
+## 9. Cấu Hình Biến Môi Trường Nâng Cao Cho AI (AI Configuration)
+
+Trong file `backend/.env`, có thể cấu hình các thông số sau:
+
+| Biến môi trường | Mặc định | Mô tả |
+|---|---|---|
+| `GEMINI_API_KEY` | *(Tùy chọn)* | API key của Google AI Studio để kích hoạt Gemini |
+| `AI_PROCESSING_ENABLED` | `true` | Bật/tắt xử lý AI (khi tắt sẽ dùng bộ quy tắc Rule-based fallback) |
+| `DEMO_MODE` | `true` | Bật disclaimer chế độ thử nghiệm học thuật trên giao diện |
+| `GEMINI_MODELS` | `gemini-3.5-flash-lite,gemini-3.5-flash,gemini-3.8-flash` | Danh sách model ưu tiên tự động failover |
+| `CHAT_DAILY_BUDGET` | `500` | Số lượt gọi Gemini tối đa mỗi ngày cho Chatbot Triage |
+| `INTAKE_SUMMARY_DAILY_BUDGET` | `200` | Số lượt gọi Gemini tối đa mỗi ngày cho Tóm tắt tiền khám |
+
+
 
