@@ -416,10 +416,22 @@ function ShiftChip({
   cancellationRequest?: ShiftCancellationRequest;
   onRequestCancellation: () => void;
 }) {
+  // Kiểm tra ca làm việc đã qua
+  const now = new Date();
+  const todayStr = toISO(now);
+  const currentHours = String(now.getHours()).padStart(2, "0");
+  const currentMinutes = String(now.getMinutes()).padStart(2, "0");
+  const currentTime = `${currentHours}:${currentMinutes}`;
+  const shiftEndTime = shift.endTime || (shift.shift === "MORNING" ? "12:00" : shift.shift === "AFTERNOON" ? "17:00" : "21:00");
+
+  const isPast = shift.date < todayStr || (shift.date === todayStr && shiftEndTime <= currentTime);
+
   return (
-    <div className="shift-chip">
+    <div className={`shift-chip ${isPast ? "shift-chip--past opacity-75" : ""}`}>
       <div className="shift-chip-header">
-        <span className="shift-chip-badge">Đã đăng ký</span>
+        <span className={`shift-chip-badge ${isPast ? "bg-secondary text-white border-0" : ""}`}>
+          {isPast ? "Đã kết thúc" : "Đã đăng ký"}
+        </span>
         <div className="shift-chip-meta">
         </div>
         {shift.note && <span className="shift-chip-note">{shift.note}</span>}
@@ -449,7 +461,7 @@ function ShiftChip({
               Yêu cầu bị từ chối{cancellationRequest.decisionNote ? `: ${cancellationRequest.decisionNote}` : ""}
             </div>
           )}
-          {shift.status === "ACTIVE" && (
+          {shift.status === "ACTIVE" && !isPast && (
             <Button size="sm" variant="outline-danger" className="mt-2" onClick={onRequestCancellation}>
               Yêu cầu hủy ca
             </Button>

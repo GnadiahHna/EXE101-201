@@ -110,6 +110,15 @@ const create = async (actor, shiftId, input = {}) => {
     throw new ApiError(409, 'Chỉ ca trực đang hoạt động (ACTIVE) mới có thể gửi yêu cầu hủy', 'SHIFT_NOT_ACTIVE');
   }
 
+  // Chặn yêu cầu hủy ca làm việc trong quá khứ hoặc ca đã kết thúc
+  const todayDate = clock.today();
+  const nowTime = clock.currentTime();
+  const shiftEndTime = shift.endTime || (shift.shift === 'MORNING' ? '12:00' : shift.shift === 'AFTERNOON' ? '17:00' : '21:00');
+
+  if (shift.date < todayDate || (shift.date === todayDate && shiftEndTime <= nowTime)) {
+    throw new ApiError(400, 'Không thể yêu cầu hủy ca làm việc đã kết thúc hoặc trong quá khứ', 'PAST_SHIFT_CANNOT_BE_CANCELLED');
+  }
+
   // Active bookings count
   const activeStatuses = [
     APPOINTMENT_STATUSES.PENDING_PAYMENT,
