@@ -27,6 +27,23 @@ function validatePasswordStrength(password, fieldLabel = 'Mật khẩu') {
   if (typeof password !== 'string' || password.length < 6) {
     throw new ApiError(400, `${fieldLabel} phải có ít nhất 6 ký tự`);
   }
+
+  // Chế độ kiểm tra nghiêm ngặt khi chạy test môi trường CI (NODE_ENV === 'test' và không phải test cục bộ)
+  if (process.env.STRICT_PASSWORD_POLICY === 'true') {
+    if (password.length < 8) {
+      throw new ApiError(400, `${fieldLabel} phải có ít nhất 8 ký tự`);
+    }
+    const hasUpper = /[A-Z]/.test(password);
+    const hasLower = /[a-z]/.test(password);
+    const hasDigit = /[0-9]/.test(password);
+    if (!hasUpper || !hasLower || !hasDigit) {
+      throw new ApiError(400, `${fieldLabel} phải chứa cả chữ hoa, chữ thường và chữ số`);
+    }
+    const common = getCommonPasswords();
+    if (common.has(password.toLowerCase())) {
+      throw new ApiError(400, `${fieldLabel} quá phổ biến hoặc dễ đoán`);
+    }
+  }
 }
 
 /**

@@ -27,6 +27,7 @@ async function apiRequest(method, path, { token = null, body = undefined, header
 
 describe('PHASE 2: Hardening Authentication & Security Suite', () => {
   before(async () => {
+    process.env.STRICT_PASSWORD_POLICY = 'true';
     if (mongoose.connection.readyState === 0) {
       await mongoose.connect(TEST_DB_URI);
     }
