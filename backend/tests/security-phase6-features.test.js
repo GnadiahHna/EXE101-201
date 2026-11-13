@@ -15,6 +15,7 @@ const {
   Waitlist,
   Prescription,
   PatientProfile,
+  OutboxEvent,
 } = require('../src/models');
 const { APPOINTMENT_STATUSES } = require('../src/constants/enums');
 const { calculateNoShowRisk } = require('../src/utils/noShowRisk');

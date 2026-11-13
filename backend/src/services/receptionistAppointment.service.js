@@ -835,7 +835,7 @@ async function rescheduleAppointmentByStaff(
         doctorId: oldAppointment.doctorId,
         newShiftId: newShift.id,
         newDate: newShift.date,
-        newTime: candidateSlot.startTime,
+        newTime: candidateSlots[0]?.startTime || '',
         rescheduledBy: actor.userId || actor.id,
         reason: cleanReason,
       },
@@ -844,10 +844,11 @@ async function rescheduleAppointmentByStaff(
     // In-App Notification (Chuông thông báo cho bệnh nhân) & Gửi email
     try {
       const { notificationService } = require('./notification.service');
+      const firstSlotStartTime = candidateSlots[0]?.startTime || '';
       await notificationService.notifyUser({
         userId: oldAppointment.patientId,
         title: 'Lịch hẹn đã được dời/đổi lịch',
-        message: `Lịch hẹn #${oldAppointment.appointmentNo} đã được chuyển sang lịch mới #${newAppointment.appointmentNo} vào lúc ${candidateSlot.startTime} ngày ${newShift.date}. Lý do: ${cleanReason}.`,
+        message: `Lịch hẹn #${oldAppointment.appointmentNo} đã được chuyển sang lịch mới #${newAppointment.appointmentNo} vào lúc ${firstSlotStartTime} ngày ${newShift.date}. Lý do: ${cleanReason}.`,
         type: 'STATUS_CHANGE',
         link: '/patient/appointments',
         metadata: {
@@ -863,7 +864,7 @@ async function rescheduleAppointmentByStaff(
       const doctorDisplayName = actor.fullName || (actorRole === ROLES.DOCTOR ? 'Bác sĩ' : actorRole === ROLES.RECEPTIONIST ? 'Lễ tân' : 'Quản trị viên');
       const staffNotifPayload = {
         title: 'Lịch hẹn đã được điều chỉnh/đổi lịch',
-        message: `${doctorDisplayName} vừa điều chỉnh lịch hẹn #${oldAppointment.appointmentNo} sang ngày ${newShift.date} ${candidateSlot.startTime} (Mã mới: #${newAppointment.appointmentNo}). Lý do: ${cleanReason}.`,
+        message: `${doctorDisplayName} vừa điều chỉnh lịch hẹn #${oldAppointment.appointmentNo} sang ngày ${newShift.date} ${firstSlotStartTime} (Mã mới: #${newAppointment.appointmentNo}). Lý do: ${cleanReason}.`,
         type: 'SYSTEM',
         link: '/receptionist/appointment',
         metadata: {
@@ -885,17 +886,17 @@ async function rescheduleAppointmentByStaff(
     }
 
   } catch (err) {
-    // COMPENSATION ROLLBACK: Revert the reserved slot back to AVAILABLE
+    // COMPENSATION ROLLBACK: Revert the reserved slots back to AVAILABLE
     try {
       await releaseSlot({
         shiftId: newShift.id,
-        slotIds: [candidateSlot.id],
+        slotIds: candidateSlotIds,
         bookingRef: tempHoldRef,
       });
       if (newAppointment && newAppointment.appointmentNo) {
         await releaseSlot({
           shiftId: newShift.id,
-          slotIds: [candidateSlot.id],
+          slotIds: candidateSlotIds,
           bookingRef: newAppointment.appointmentNo,
         });
       }
