@@ -42,7 +42,7 @@
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.11.4",
+    "mongoose": "^9.12.1",
     "multer": "^2.5.0",
     "nodemailer": "^10.4.0",
     "pino": "^9.6.0",
