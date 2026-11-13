@@ -26,6 +26,10 @@ export type CreatePatientInfoPayload = {
   phoneNumber?: string;
   dob?: string;
   relationship: string;
+  allergies?: string[];
+  medicalHistory?: string[];
+  weightKg?: number | null;
+  heightCm?: number | null;
 };
 
 export type UpdatePatientInfoPayload = Partial<CreatePatientInfoPayload>;

@@ -10,6 +10,16 @@ const appointmentPatientSnapshotSchema = new mongoose.Schema(
     phoneNumber: { type: String, default: null },
     dob: { type: String, default: null },
     relationship: { type: String, default: null },
+    intake: {
+      symptoms: { type: String, default: null },
+      duration: { type: String, default: null },
+      currentMedications: { type: String, default: null },
+      allergies: { type: [String], default: [] },
+      medicalHistory: { type: [String], default: [] },
+      weightKg: { type: Number, default: null },
+      heightCm: { type: Number, default: null },
+      notes: { type: String, default: null },
+    },
   },
   { _id: false },
 );

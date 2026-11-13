@@ -162,15 +162,64 @@ async function bookAppointment(user, query = {}, body = {}) {
   const snapshotPatients = [];
   const newPatientsToSave = [];
 
+  const parsePatientIntake = (raw) => {
+    if (!raw || typeof raw !== 'object') return null;
+    const symptoms = raw.symptoms || null;
+    const duration = raw.duration || null;
+    const currentMedications = raw.currentMedications || null;
+    const allergies = Array.isArray(raw.allergies)
+      ? raw.allergies.map(String).map((s) => s.trim()).filter(Boolean)
+      : typeof raw.allergies === 'string' && raw.allergies.trim()
+      ? raw.allergies.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean)
+      : [];
+    const medicalHistory = Array.isArray(raw.medicalHistory)
+      ? raw.medicalHistory.map(String).map((s) => s.trim()).filter(Boolean)
+      : typeof raw.medicalHistory === 'string' && raw.medicalHistory.trim()
+      ? raw.medicalHistory.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean)
+      : [];
+    const weightKg = Number.isFinite(Number(raw.weightKg)) && Number(raw.weightKg) > 0 ? Number(raw.weightKg) : null;
+    const heightCm = Number.isFinite(Number(raw.heightCm)) && Number(raw.heightCm) > 0 ? Number(raw.heightCm) : null;
+    const notes = raw.notes || null;
+
+    if (!symptoms && !duration && allergies.length === 0 && medicalHistory.length === 0 && !currentMedications && !weightKg && !heightCm) {
+      return null;
+    }
+
+    return {
+      symptoms,
+      duration,
+      currentMedications,
+      allergies,
+      medicalHistory,
+      weightKg,
+      heightCm,
+      notes,
+    };
+  };
+
   for (let i = 0; i < rawPatients.length; i += 1) {
     const p = rawPatients[i];
     if (!p || typeof p !== 'object') {
       throw new ApiError(400, `Thông tin bệnh nhân thứ ${i + 1} không hợp lệ`);
     }
 
+    const patientIntakeFromPayload = parsePatientIntake(p.intake);
+
     if (p.id != null && String(p.id).trim() !== '') {
       // Existing profile: must belong to owner and NOT be archived
       const profile = await patientProfileService.getActiveProfileForOwner(user.id, p.id);
+      
+      const mergedIntake = patientIntakeFromPayload || {
+        symptoms: null,
+        duration: null,
+        currentMedications: null,
+        allergies: profile.allergies || [],
+        medicalHistory: profile.medicalHistory || [],
+        weightKg: profile.weightKg || null,
+        heightCm: profile.heightCm || null,
+        notes: null,
+      };
+
       snapshotPatients.push({
         id: profile.id,
         fullName: profile.fullName,
@@ -178,6 +227,7 @@ async function bookAppointment(user, query = {}, body = {}) {
         phoneNumber: profile.phoneNumber,
         dob: profile.dob,
         relationship: profile.relationship,
+        intake: mergedIntake,
       });
     } else {
       // New profile entered inline
@@ -231,6 +281,7 @@ async function bookAppointment(user, query = {}, body = {}) {
         phoneNumber,
         dob,
         relationship,
+        intake: patientIntakeFromPayload,
       });
 
       newPatientsToSave.push({
@@ -239,6 +290,10 @@ async function bookAppointment(user, query = {}, body = {}) {
         phoneNumber,
         dob,
         relationship,
+        allergies: patientIntakeFromPayload?.allergies || [],
+        medicalHistory: patientIntakeFromPayload?.medicalHistory || [],
+        weightKg: patientIntakeFromPayload?.weightKg || null,
+        heightCm: patientIntakeFromPayload?.heightCm || null,
       });
     }
   }
@@ -402,16 +457,26 @@ async function bookAppointment(user, query = {}, body = {}) {
     : null;
   const intakeNotes = rawIntake.notes || null;
 
+  // Aggregate intake across all patients if appointment level intake is sparse
+  const allPatientsAllergies = Array.from(new Set([
+    ...intakeAllergies,
+    ...snapshotPatients.flatMap((p) => p.intake?.allergies || []),
+  ]));
+  const allPatientsMedicalHistory = Array.from(new Set([
+    ...intakeMedicalHistory,
+    ...snapshotPatients.flatMap((p) => p.intake?.medicalHistory || []),
+  ]));
+
   const intakeData = {
-    symptoms: intakeSymptoms,
-    duration: intakeDuration,
-    currentMedications: intakeCurrentMedications,
-    allergies: intakeAllergies,
-    medicalHistory: intakeMedicalHistory,
-    weightKg: intakeWeightKg,
-    heightCm: intakeHeightCm,
+    symptoms: intakeSymptoms || snapshotPatients.map((p) => p.intake?.symptoms).filter(Boolean).join('; ') || null,
+    duration: intakeDuration || snapshotPatients.map((p) => p.intake?.duration).filter(Boolean).join('; ') || null,
+    currentMedications: intakeCurrentMedications || snapshotPatients.map((p) => p.intake?.currentMedications).filter(Boolean).join('; ') || null,
+    allergies: allPatientsAllergies,
+    medicalHistory: allPatientsMedicalHistory,
+    weightKg: intakeWeightKg || snapshotPatients.find((p) => p.intake?.weightKg)?.intake?.weightKg || null,
+    heightCm: intakeHeightCm || snapshotPatients.find((p) => p.intake?.heightCm)?.intake?.heightCm || null,
     notes: intakeNotes,
-    submittedAt: (intakeSymptoms || intakeAllergies.length > 0 || intakeMedicalHistory.length > 0)
+    submittedAt: (intakeSymptoms || allPatientsAllergies.length > 0 || allPatientsMedicalHistory.length > 0 || snapshotPatients.some((p) => p.intake))
       ? new Date()
       : null,
   };
@@ -534,6 +599,10 @@ async function bookAppointment(user, query = {}, body = {}) {
             phoneNumber: newP.phoneNumber,
             dob: newP.dob,
             relationship: newP.relationship,
+            allergies: newP.allergies || [],
+            medicalHistory: newP.medicalHistory || [],
+            weightKg: newP.weightKg || null,
+            heightCm: newP.heightCm || null,
             isArchived: false,
           });
         }

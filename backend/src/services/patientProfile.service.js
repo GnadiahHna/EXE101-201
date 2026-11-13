@@ -137,6 +137,17 @@ async function createProfile(user, payload = {}) {
     }
   }
 
+  const parseStringArray = (val) => {
+    if (Array.isArray(val)) return val.map(String).map((s) => s.trim()).filter(Boolean);
+    if (typeof val === 'string' && val.trim()) return val.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+    return [];
+  };
+
+  const allergies = parseStringArray(payload.allergies);
+  const medicalHistory = parseStringArray(payload.medicalHistory);
+  const weightKg = Number.isFinite(Number(payload.weightKg)) && Number(payload.weightKg) > 0 ? Number(payload.weightKg) : null;
+  const heightCm = Number.isFinite(Number(payload.heightCm)) && Number(payload.heightCm) > 0 ? Number(payload.heightCm) : null;
+
   const profile = await PatientProfile.create({
     ownerId,
     fullName,
@@ -144,6 +155,10 @@ async function createProfile(user, payload = {}) {
     phoneNumber,
     dob,
     relationship,
+    allergies,
+    medicalHistory,
+    weightKg,
+    heightCm,
     isArchived: false,
   });
 
@@ -163,6 +178,28 @@ async function updateProfile(user, profileId, payload = {}) {
 
   if (profile.ownerId !== user.id) {
     throw new ApiError(403, 'Bạn không có quyền cập nhật hồ sơ bệnh nhân này');
+  }
+
+  const parseStringArray = (val) => {
+    if (Array.isArray(val)) return val.map(String).map((s) => s.trim()).filter(Boolean);
+    if (typeof val === 'string' && val.trim()) return val.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+    return [];
+  };
+
+  if (payload.allergies !== undefined) {
+    profile.allergies = parseStringArray(payload.allergies);
+  }
+
+  if (payload.medicalHistory !== undefined) {
+    profile.medicalHistory = parseStringArray(payload.medicalHistory);
+  }
+
+  if (payload.weightKg !== undefined) {
+    profile.weightKg = Number.isFinite(Number(payload.weightKg)) && Number(payload.weightKg) > 0 ? Number(payload.weightKg) : null;
+  }
+
+  if (payload.heightCm !== undefined) {
+    profile.heightCm = Number.isFinite(Number(payload.heightCm)) && Number(payload.heightCm) > 0 ? Number(payload.heightCm) : null;
   }
 
   if (payload.fullName !== undefined) {

@@ -28,16 +28,39 @@ function calculateInputHash(facts, narrative) {
 /**
  * Renders verified facts directly from server state (Never hallucinated by LLM)
  */
-function renderServerFacts(intake = {}) {
+function renderServerFacts(intake = {}, patients = []) {
+  // If appointment has multiple patients with intake info, collect per-patient facts
+  const patientFacts = (patients && patients.length > 0)
+    ? patients.map((p, idx) => {
+        const pIntake = p.intake || {};
+        const pAllergies = pIntake.allergies && pIntake.allergies.length > 0 ? pIntake.allergies : [];
+        const pHistory = pIntake.medicalHistory && pIntake.medicalHistory.length > 0 ? pIntake.medicalHistory : [];
+        return {
+          name: p.fullName || `Bệnh nhân ${idx + 1}`,
+          allergies: pAllergies.length > 0 ? pAllergies : ['Chưa ghi nhận dị ứng'],
+          hasAllergies: pAllergies.length > 0,
+          medicalHistory: pHistory.length > 0 ? pHistory : ['Không có'],
+          currentMedications: pIntake.currentMedications || 'Không có',
+          symptoms: pIntake.symptoms || null,
+          duration: pIntake.duration || null,
+        };
+      })
+    : [];
+
+  const combinedAllergies = intake.allergies && intake.allergies.length > 0
+    ? intake.allergies
+    : patientFacts.flatMap((pf) => (pf.hasAllergies ? pf.allergies : []));
+
   return {
-    allergies: intake.allergies && intake.allergies.length > 0 ? intake.allergies : ['Chưa ghi nhận dị ứng'],
-    hasAllergies: Boolean(intake.allergies && intake.allergies.length > 0),
+    allergies: combinedAllergies.length > 0 ? Array.from(new Set(combinedAllergies)) : ['Chưa ghi nhận dị ứng'],
+    hasAllergies: combinedAllergies.length > 0,
     medicalHistory: intake.medicalHistory && intake.medicalHistory.length > 0 ? intake.medicalHistory : ['Không có'],
     currentMedications: intake.currentMedications || 'Không có',
     vitals: {
       heightCm: intake.heightCm || null,
       weightKg: intake.weightKg || null,
     },
+    patientFacts,
   };
 }
 
@@ -47,6 +70,26 @@ function renderServerFacts(intake = {}) {
 function formatBullets(data, facts) {
   const bullets = [];
 
+  // If multi-patient facts exist and there are 2 or more patients
+  if (facts.patientFacts && facts.patientFacts.length > 1) {
+    bullets.push(`Danh sách người khám (${facts.patientFacts.length} người): ${facts.patientFacts.map((pf) => pf.name).join(', ')}`);
+    
+    facts.patientFacts.forEach((pf) => {
+      const allergyText = pf.hasAllergies ? `⚠️ Dị ứng: ${pf.allergies.join(', ')}` : 'Dị ứng: Chưa ghi nhận';
+      const symptomText = pf.symptoms ? `Triệu chứng: ${pf.symptoms} (${pf.duration || 'Mới khởi phát'})` : 'Triệu chứng: Chưa ghi nhận riêng';
+      const historyText = pf.medicalHistory.length > 0 && pf.medicalHistory[0] !== 'Không có' ? `Bệnh nền: ${pf.medicalHistory.join(', ')}` : '';
+      bullets.push(`• ${pf.name}: ${symptomText} | ${allergyText}${historyText ? ` | ${historyText}` : ''}`);
+    });
+
+    if (data.redFlagsMentioned && data.redFlagsMentioned.length > 0) {
+      bullets.push(`⚠️ Cảnh báo đáng lưu ý: ${data.redFlagsMentioned.join(', ')}`);
+    } else if (data.suggestedQuestions && data.suggestedQuestions.length > 0) {
+      bullets.push(`Câu hỏi gợi ý hỏi bệnh nhân: ${data.suggestedQuestions.slice(0, 2).join('; ')}`);
+    }
+    return bullets;
+  }
+
+  // Single patient bullet view
   // Bullet 1: Lý do khám & Thời gian
   bullets.push(`Lý do khám chính: ${data.chiefComplaint || 'Khám tổng quát'} (${data.onsetAndDuration || 'Mới khởi phát'})`);
 
@@ -92,12 +135,26 @@ async function getIntakeSummary(doctorUser, appointmentId, forceRegenerate = fal
   }
 
   const intake = appointment.intake || {};
-  const facts = renderServerFacts(intake);
+  const patients = appointment.patients || [];
+  const facts = renderServerFacts(intake, patients);
 
   // Patient raw narrative input
-  const narrativeRaw = `Triệu chứng: ${intake.symptoms || appointment.reason || 'Chưa cung cấp'}
+  let narrativeRaw = '';
+  if (patients.length > 1) {
+    narrativeRaw = patients
+      .map((p, idx) => {
+        const pIntake = p.intake || {};
+        return `Bệnh nhân ${idx + 1} (${p.fullName || 'Khách'}):
+- Triệu chứng: ${pIntake.symptoms || intake.symptoms || appointment.reason || 'Chưa cung cấp'}
+- Thời gian: ${pIntake.duration || intake.duration || 'Chưa rõ'}
+- Ghi chú: ${pIntake.notes || 'Không'}`;
+      })
+      .join('\n\n');
+  } else {
+    narrativeRaw = `Triệu chứng: ${intake.symptoms || appointment.reason || 'Chưa cung cấp'}
 Thời gian: ${intake.duration || 'Chưa rõ'}
 Ghi chú thêm: ${intake.notes || 'Không'}`;
+  }
 
   const currentInputHash = calculateInputHash(JSON.stringify(facts), narrativeRaw);
 

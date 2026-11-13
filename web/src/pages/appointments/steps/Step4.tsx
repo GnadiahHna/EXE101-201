@@ -200,17 +200,28 @@ export default function Step4Review() {
         .filter(Boolean)
         .join("; ") || undefined;
 
-    const patientsPayload = state.patientSelections.map((p) =>
-      p.patientInfoId
-        ? { id: p.patientInfoId }
+    const patientsPayload = state.patientSelections.map((p) => {
+      const pIntake = {
+        symptoms: p.symptoms || p.reason || undefined,
+        duration: p.duration || undefined,
+        allergies: p.allergies && p.allergies.length > 0 ? p.allergies : undefined,
+        medicalHistory: p.medicalHistory && p.medicalHistory.length > 0 ? p.medicalHistory : undefined,
+        currentMedications: p.currentMedications || undefined,
+        weightKg: p.weightKg ?? undefined,
+        heightCm: p.heightCm ?? undefined,
+      };
+
+      return p.patientInfoId
+        ? { id: p.patientInfoId, intake: pIntake }
         : {
             fullName: p.fullName,
             gender: p.gender,
             phoneNumber: p.phoneNumber,
             dob: p.dob,
             relationship: p.relationship,
-          }
-    );
+            intake: pIntake,
+          };
+    });
 
     const primaryPatient = state.patientSelections[0];
     const intakePayload = primaryPatient

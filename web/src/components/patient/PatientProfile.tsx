@@ -15,12 +15,16 @@ import { useAuth } from "../../hooks/useAuth";
 import Button from "../common/Button";
 import { useToast } from "../common/ToastProvider";
 
-const emptyForm: CreatePatientInfoPayload = {
+const emptyForm = {
   fullName: "",
   gender: "",
   phoneNumber: "",
   dob: "",
   relationship: "",
+  allergies: "",
+  medicalHistory: "",
+  weightKg: "",
+  heightCm: "",
 };
 
 const emptyAccountForm = {
@@ -40,7 +44,7 @@ export default function PatientProfile() {
   const [showModal, setShowModal] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
-  const [form, setForm] = useState<CreatePatientInfoPayload>({ ...emptyForm });
+  const [form, setForm] = useState({ ...emptyForm });
   const [accountForm, setAccountForm] = useState({ ...emptyAccountForm });
   const [passwordForm, setPasswordForm] = useState({
     oldPassword: "",
@@ -141,7 +145,7 @@ export default function PatientProfile() {
     [accountData, getGenderLabel]
   );
 
-  const handleChange = (field: keyof CreatePatientInfoPayload) => (
+  const handleChange = (field: keyof typeof emptyForm) => (
     event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { value } = event.target;
@@ -177,6 +181,10 @@ export default function PatientProfile() {
       phoneNumber: record.phoneNumber || "",
       dob: record.dob || "",
       relationship: record.relationship || "",
+      allergies: record.allergies ? record.allergies.join(", ") : "",
+      medicalHistory: record.medicalHistory ? record.medicalHistory.join(", ") : "",
+      weightKg: record.weightKg != null ? String(record.weightKg) : "",
+      heightCm: record.heightCm != null ? String(record.heightCm) : "",
     });
     setShowModal(true);
   };
@@ -306,9 +314,22 @@ export default function PatientProfile() {
 
     setSubmitting(true);
     try {
+      const parseList = (str: string) =>
+        str
+          .split(/[,;\n]+/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+
       const payload: CreatePatientInfoPayload = {
-        ...form,
+        fullName: form.fullName.trim(),
+        relationship: form.relationship.trim(),
         gender: form.gender || undefined,
+        phoneNumber: form.phoneNumber.trim() || undefined,
+        dob: form.dob || undefined,
+        allergies: parseList(form.allergies),
+        medicalHistory: parseList(form.medicalHistory),
+        weightKg: form.weightKg ? Number(form.weightKg) : null,
+        heightCm: form.heightCm ? Number(form.heightCm) : null,
       };
       if (editingRecord) {
         await updatePatientInfo(editingRecord.id, payload);
@@ -480,6 +501,34 @@ export default function PatientProfile() {
                       <span className="patient-info-label">Số điện thoại</span>
                       <span className="patient-info-value">{record.phoneNumber || "—"}</span>
                     </div>
+                    <div className="patient-info-field">
+                      <span className="patient-info-label">Dị ứng</span>
+                      <span className="patient-info-value">
+                        {record.allergies && record.allergies.length > 0 ? (
+                          <span className="text-danger fw-semibold">
+                            ⚠️ {record.allergies.join(", ")}
+                          </span>
+                        ) : (
+                          "Không có"
+                        )}
+                      </span>
+                    </div>
+                    <div className="patient-info-field">
+                      <span className="patient-info-label">Bệnh lý nền</span>
+                      <span className="patient-info-value">
+                        {record.medicalHistory && record.medicalHistory.length > 0
+                          ? record.medicalHistory.join(", ")
+                          : "Không có"}
+                      </span>
+                    </div>
+                    {(record.heightCm || record.weightKg) && (
+                      <div className="patient-info-field">
+                        <span className="patient-info-label">Thể trạng</span>
+                        <span className="patient-info-value">
+                          {record.heightCm ? `${record.heightCm} cm` : "—"} / {record.weightKg ? `${record.weightKg} kg` : "—"}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </Col>
@@ -544,6 +593,59 @@ export default function PatientProfile() {
                 placeholder="09xxxxxxxx"
               />
             </Form.Group>
+            
+            <div className="p-3 bg-light rounded-3 border">
+              <h6 className="fw-bold text-primary mb-2">📋 Thông tin y tế & Tiền sử</h6>
+              <Form.Group className="mb-2" controlId="patientAllergies">
+                <Form.Label className="text-danger fw-semibold">
+                  ⚠️ Dị ứng thuốc / Thực phẩm (nếu có)
+                </Form.Label>
+                <Form.Control
+                  value={form.allergies}
+                  onChange={handleChange("allergies")}
+                  placeholder="Ví dụ: Penicillin, Aspirin, hải sản..."
+                />
+                <Form.Text className="text-muted">
+                  Bác sĩ sẽ nhận được cảnh báo an toàn kê đơn tự động từ danh sách này.
+                </Form.Text>
+              </Form.Group>
+              <Form.Group className="mb-2" controlId="patientMedicalHistory">
+                <Form.Label>Tiền sử bệnh lý nền</Form.Label>
+                <Form.Control
+                  value={form.medicalHistory}
+                  onChange={handleChange("medicalHistory")}
+                  placeholder="Ví dụ: Tăng huyết áp, tiểu đường, hen suyễn..."
+                />
+              </Form.Group>
+              <Row className="g-2">
+                <Col md={6}>
+                  <Form.Group controlId="patientHeightCm">
+                    <Form.Label>Chiều cao (cm)</Form.Label>
+                    <Form.Control
+                      type="number"
+                      min={30}
+                      max={250}
+                      value={form.heightCm}
+                      onChange={handleChange("heightCm")}
+                      placeholder="165"
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group controlId="patientWeightKg">
+                    <Form.Label>Cân nặng (kg)</Form.Label>
+                    <Form.Control
+                      type="number"
+                      min={1}
+                      max={300}
+                      value={form.weightKg}
+                      onChange={handleChange("weightKg")}
+                      placeholder="60"
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>
+            </div>
           </Modal.Body>
           <Modal.Footer>
             <Button

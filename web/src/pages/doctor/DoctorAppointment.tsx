@@ -583,33 +583,75 @@ export default function DoctorAppointment() {
                 {/* Thông tin tiền khám gốc (Hiển thị khi chưa có tóm tắt hoặc khi bác sĩ chủ động bấm xem) */}
                 {(!intakeSummary || showRawIntake) && (
                   <div className={`small text-secondary ${intakeSummary ? "mt-2 pt-2 border-top" : ""}`}>
-                    <div className="row g-2">
-                      <div className="col-md-6">
-                        <strong>Triệu chứng:</strong> {(viewItem as any).intake?.symptoms || viewItem.reason || "Chưa ghi nhận"}
+                    {Array.isArray((viewItem as any).patients) && (viewItem as any).patients.length > 1 ? (
+                      <div className="d-flex flex-column gap-3">
+                        {(viewItem as any).patients.map((p: any, idx: number) => {
+                          const pIntake = p.intake || {};
+                          return (
+                            <div key={idx} className="p-2 border rounded bg-white">
+                              <div className="d-flex justify-content-between align-items-center mb-1">
+                                <span className="fw-bold text-dark">
+                                  #{idx + 1}. {p.fullName} ({p.gender === "Male" ? "Nam" : p.gender === "Female" ? "Nữ" : "Khác"} - {p.relationship || "Chính chủ"})
+                                </span>
+                                {pIntake.allergies && pIntake.allergies.length > 0 && (
+                                  <span className="badge bg-danger-subtle text-danger border border-danger px-1 py-0.5" style={{ fontSize: "11px" }}>
+                                    ⚠️ {Array.isArray(pIntake.allergies) ? pIntake.allergies.join(", ") : pIntake.allergies}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="row g-1 text-muted" style={{ fontSize: "12px" }}>
+                                <div className="col-12">
+                                  <strong>Triệu chứng:</strong> {pIntake.symptoms || (idx === 0 ? (viewItem as any).intake?.symptoms || viewItem.reason : "—")}
+                                  {pIntake.duration ? ` (${pIntake.duration})` : ""}
+                                </div>
+                                <div className="col-md-6">
+                                  <strong>Dị ứng:</strong>{" "}
+                                  <span className={pIntake.allergies && pIntake.allergies.length > 0 ? "text-danger fw-semibold" : ""}>
+                                    {pIntake.allergies && pIntake.allergies.length > 0
+                                      ? (Array.isArray(pIntake.allergies) ? pIntake.allergies.join(", ") : pIntake.allergies)
+                                      : "Chưa ghi nhận"}
+                                  </span>
+                                </div>
+                                <div className="col-md-6">
+                                  <strong>Bệnh lý:</strong>{" "}
+                                  {pIntake.medicalHistory && pIntake.medicalHistory.length > 0
+                                    ? (Array.isArray(pIntake.medicalHistory) ? pIntake.medicalHistory.join(", ") : pIntake.medicalHistory)
+                                    : "—"}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                      <div className="col-md-6">
-                        <strong>Thời gian xuất hiện:</strong> {(viewItem as any).intake?.duration || "—"}
-                      </div>
-                      <div className="col-md-6">
-                        <strong>Dị ứng thuốc/thực phẩm:</strong>{" "}
-                        <span className="text-danger fw-semibold">
-                          {(viewItem as any).intake?.allergies && (viewItem as any).intake.allergies.length > 0
-                            ? (Array.isArray((viewItem as any).intake.allergies) ? (viewItem as any).intake.allergies.join(", ") : (viewItem as any).intake.allergies)
-                            : "Không có / Chưa ghi nhận"}
-                        </span>
-                      </div>
-                      <div className="col-md-6">
-                        <strong>Tiền sử bệnh lý:</strong> {(viewItem as any).intake?.medicalHistory && (viewItem as any).intake.medicalHistory.length > 0 ? (Array.isArray((viewItem as any).intake.medicalHistory) ? (viewItem as any).intake.medicalHistory.join(", ") : (viewItem as any).intake.medicalHistory) : "—"}
-                      </div>
-                      <div className="col-md-6">
-                        <strong>Thuốc đang dùng:</strong> {(viewItem as any).intake?.currentMedications || "—"}
-                      </div>
-                      {((viewItem as any).intake?.heightCm || (viewItem as any).intake?.weightKg) && (
+                    ) : (
+                      <div className="row g-2">
                         <div className="col-md-6">
-                          <strong>Thể trạng:</strong> Chiều cao: {(viewItem as any).intake?.heightCm || "—"} cm, Cân nặng: {(viewItem as any).intake?.weightKg || "—"} kg
+                          <strong>Triệu chứng:</strong> {(viewItem as any).intake?.symptoms || viewItem.reason || "Chưa ghi nhận"}
                         </div>
-                      )}
-                    </div>
+                        <div className="col-md-6">
+                          <strong>Thời gian xuất hiện:</strong> {(viewItem as any).intake?.duration || "—"}
+                        </div>
+                        <div className="col-md-6">
+                          <strong>Dị ứng thuốc/thực phẩm:</strong>{" "}
+                          <span className="text-danger fw-semibold">
+                            {(viewItem as any).intake?.allergies && (viewItem as any).intake.allergies.length > 0
+                              ? (Array.isArray((viewItem as any).intake.allergies) ? (viewItem as any).intake.allergies.join(", ") : (viewItem as any).intake.allergies)
+                              : "Không có / Chưa ghi nhận"}
+                          </span>
+                        </div>
+                        <div className="col-md-6">
+                          <strong>Tiền sử bệnh lý:</strong> {(viewItem as any).intake?.medicalHistory && (viewItem as any).intake.medicalHistory.length > 0 ? (Array.isArray((viewItem as any).intake.medicalHistory) ? (viewItem as any).intake.medicalHistory.join(", ") : (viewItem as any).intake.medicalHistory) : "—"}
+                        </div>
+                        <div className="col-md-6">
+                          <strong>Thuốc đang dùng:</strong> {(viewItem as any).intake?.currentMedications || "—"}
+                        </div>
+                        {((viewItem as any).intake?.heightCm || (viewItem as any).intake?.weightKg) && (
+                          <div className="col-md-6">
+                            <strong>Thể trạng:</strong> Chiều cao: {(viewItem as any).intake?.heightCm || "—"} cm, Cân nặng: {(viewItem as any).intake?.weightKg || "—"} kg
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
