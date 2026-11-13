@@ -228,12 +228,37 @@ export default function DoctorShifts() {
                   : typeof entry.time === "string"
                   ? entry.time
                   : "";
-              items.push({
-                id: Number(entry.id ?? 0),
-                time: timeValue.slice(0, 5),
-                patient: patientName,
-                status: statusRaw,
-              });
+
+              // Kiểm tra xem lịch hẹn này có nhiều slot hoặc danh sách bệnh nhân không
+              const patientsList = Array.isArray(entry.patients) ? entry.patients : [];
+              const slotIdsList = Array.isArray(entry.slotIds) ? entry.slotIds : [];
+
+              if (patientsList.length > 1 && s.slots && s.slots.length > 0) {
+                // Tách thành từng mục theo từng slot và từng người khám
+                for (let pIdx = 0; pIdx < patientsList.length; pIdx++) {
+                  const targetSlotId = slotIdsList[pIdx];
+                  const matchedSlot = s.slots.find((sl: any) => sl.id === targetSlotId);
+                  const patientSlotTime = matchedSlot?.startTime
+                    ? matchedSlot.startTime.slice(0, 5)
+                    : pIdx === 0
+                    ? timeValue.slice(0, 5)
+                    : "";
+
+                  items.push({
+                    id: Number(entry.id ?? 0) * 1000 + pIdx,
+                    time: patientSlotTime || timeValue.slice(0, 5),
+                    patient: patientsList[pIdx]?.fullName || patientName,
+                    status: statusRaw,
+                  });
+                }
+              } else {
+                items.push({
+                  id: Number(entry.id ?? 0),
+                  time: timeValue.slice(0, 5),
+                  patient: patientName,
+                  status: statusRaw,
+                });
+              }
             }
             items.sort((a, b) => (a.time || "").localeCompare(b.time || ""));
             return [String(s.id), items] as [string, AppointmentItem[]];
